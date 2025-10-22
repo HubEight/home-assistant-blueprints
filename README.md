@@ -4,7 +4,7 @@ Collection of automation blueprints for Home Assistant.
 
 ## Radiator Fan Controller with Temperature & Window Detection
 
-**Version:** 1.0.0
+**Version:** 1.0.1
 
 Automatically controls a radiator fan based on temperature with hysteresis and optional window contact monitoring.
 
