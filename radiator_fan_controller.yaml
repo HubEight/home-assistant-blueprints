@@ -3,6 +3,7 @@ blueprint:
   description: Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring
   domain: automation
   author: HubEight
+  version: 1.0.0
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator_fan_controller.yaml
   
   input:
@@ -83,20 +84,24 @@ mode: single
 max_exceeded: silent
 
 variables:
+  temperature_sensor: !input temperature_sensor
+  fan_switch: !input fan_switch
   window_sensors: !input window_sensors
   temp_on_helper: !input temp_on_helper
   temp_off_helper: !input temp_off_helper
+  temp_on_direct: !input temp_on
+  temp_off_direct: !input temp_off
   temp_on_value: >
     {% if temp_on_helper %}
       {{ states(temp_on_helper) | float }}
     {% else %}
-      {{ temp_on }}
+      {{ temp_on_direct }}
     {% endif %}
   temp_off_value: >
     {% if temp_off_helper %}
       {{ states(temp_off_helper) | float }}
     {% else %}
-      {{ temp_off }}
+      {{ temp_off_direct }}
     {% endif %}
   any_window_open: >
     {% if window_sensors | length > 0 %}
@@ -108,40 +113,40 @@ variables:
 trigger:
   - platform: homeassistant
     event: start
-    id: check
+    id: "check"
   
   - platform: template
     value_template: >
       {{ states(temperature_sensor) | float(0) >= temp_on_value }}
-    id: on
+    id: "turn_on"
   
   - platform: template
     value_template: >
       {{ states(temperature_sensor) | float(0) <= temp_off_value }}
-    id: off
+    id: "turn_off"
   
   - platform: state
     entity_id: !input temperature_sensor
     to: 
       - unavailable
       - unknown
-    id: off
+    id: "turn_off"
   
   - platform: state
     entity_id: !input window_sensors
     to: "on"
-    id: off
+    id: "turn_off"
   
   - platform: state
     entity_id: !input window_sensors
     to: "off"
-    id: check
+    id: "check"
 
 action:
   - choose:
       - conditions:
           - condition: trigger
-            id: check
+            id: "check"
         sequence:
           - if:
               - condition: template
@@ -160,7 +165,7 @@ action:
       
       - conditions:
           - condition: trigger
-            id: on
+            id: "turn_on"
           - condition: state
             entity_id: !input fan_switch
             state: "off"
@@ -173,7 +178,7 @@ action:
       
       - conditions:
           - condition: trigger
-            id: off
+            id: "turn_off"
           - condition: state
             entity_id: !input fan_switch
             state: "on"
