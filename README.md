@@ -2,7 +2,7 @@
 
 Collection of automation blueprints for Home Assistant.
 
-## Radiator Fan Controller with Temperature & Window Detection
+## Radiator Fan Controller
 
 **Version:** 1.0.1
 
@@ -71,7 +71,7 @@ Paste: `https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator
 ### Creating an Automation
 
 1. Go to `Settings → Automations & Scenes → Create Automation`
-2. Select **"Radiator Fan Controller with Temperature & Window Detection"**
+2. Select **"Radiator Fan Controller"**
 3. Configure your entities and temperature values
 4. Save and enable!
 
