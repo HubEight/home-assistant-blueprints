@@ -1,0 +1,183 @@
+blueprint:
+  name: Radiator Fan Controller with Temperature & Window Detection
+  description: Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring
+  domain: automation
+  author: HubEight
+  source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator_fan_controller.yaml
+  
+  input:
+    temperature_sensor:
+      name: Temperature Sensor
+      description: Temperature sensor on the radiator
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: temperature
+    
+    fan_switch:
+      name: Fan Switch
+      description: Switch or outlet controlling the radiator fan
+      selector:
+        entity:
+          filter:
+            - domain: switch
+    
+    temp_on:
+      name: Temperature ON (°C)
+      description: Turn fan ON when temperature reaches this value
+      default: 30
+      selector:
+        number:
+          min: 20
+          max: 80
+          step: 1
+          unit_of_measurement: "°C"
+    
+    temp_on_helper:
+      name: Temperature ON Helper (Optional)
+      description: Optional input_number helper for dynamic temperature control. If set, this overrides the direct temperature value above.
+      default: []
+      selector:
+        entity:
+          filter:
+            - domain: input_number
+          multiple: false
+    
+    temp_off:
+      name: Temperature OFF (°C)
+      description: Turn fan OFF when temperature drops to this value
+      default: 28
+      selector:
+        number:
+          min: 20
+          max: 80
+          step: 1
+          unit_of_measurement: "°C"
+    
+    temp_off_helper:
+      name: Temperature OFF Helper (Optional)
+      description: Optional input_number helper for dynamic temperature control. If set, this overrides the direct temperature value above.
+      default: []
+      selector:
+        entity:
+          filter:
+            - domain: input_number
+          multiple: false
+    
+    window_sensors:
+      name: Window Sensors (Optional)
+      description: Window contact sensors. Fan turns OFF when any window is open.
+      default: []
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              device_class: 
+                - window
+                - door
+                - opening
+          multiple: true
+
+mode: single
+max_exceeded: silent
+
+variables:
+  window_sensors: !input window_sensors
+  temp_on_helper: !input temp_on_helper
+  temp_off_helper: !input temp_off_helper
+  temp_on_value: >
+    {% if temp_on_helper %}
+      {{ states(temp_on_helper) | float }}
+    {% else %}
+      {{ temp_on }}
+    {% endif %}
+  temp_off_value: >
+    {% if temp_off_helper %}
+      {{ states(temp_off_helper) | float }}
+    {% else %}
+      {{ temp_off }}
+    {% endif %}
+  any_window_open: >
+    {% if window_sensors | length > 0 %}
+      {{ expand(window_sensors) | selectattr('state', 'eq', 'on') | list | count > 0 }}
+    {% else %}
+      false
+    {% endif %}
+
+trigger:
+  - platform: homeassistant
+    event: start
+    id: check
+  
+  - platform: template
+    value_template: >
+      {{ states(temperature_sensor) | float(0) >= temp_on_value }}
+    id: on
+  
+  - platform: template
+    value_template: >
+      {{ states(temperature_sensor) | float(0) <= temp_off_value }}
+    id: off
+  
+  - platform: state
+    entity_id: !input temperature_sensor
+    to: 
+      - unavailable
+      - unknown
+    id: off
+  
+  - platform: state
+    entity_id: !input window_sensors
+    to: "on"
+    id: off
+  
+  - platform: state
+    entity_id: !input window_sensors
+    to: "off"
+    id: check
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: check
+        sequence:
+          - if:
+              - condition: template
+                value_template: >
+                  {{ states(temperature_sensor) | float(0) >= temp_on_value }}
+              - condition: template
+                value_template: "{{ not any_window_open }}"
+            then:
+              - service: switch.turn_on
+                target:
+                  entity_id: !input fan_switch
+            else:
+              - service: switch.turn_off
+                target:
+                  entity_id: !input fan_switch
+      
+      - conditions:
+          - condition: trigger
+            id: on
+          - condition: state
+            entity_id: !input fan_switch
+            state: "off"
+          - condition: template
+            value_template: "{{ not any_window_open }}"
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input fan_switch
+      
+      - conditions:
+          - condition: trigger
+            id: off
+          - condition: state
+            entity_id: !input fan_switch
+            state: "on"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input fan_switch
