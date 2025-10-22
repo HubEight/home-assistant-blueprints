@@ -1,6 +1,6 @@
 blueprint:
   name: Radiator Fan Controller with Temperature & Window Detection
-  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.0.0"
+  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.0.1"
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator_fan_controller.yaml
@@ -114,15 +114,17 @@ trigger:
     event: start
     id: "check"
   
-  - platform: template
-    value_template: >
-      {{ states(temperature_sensor) | float(0) >= temp_on_value }}
-    id: "turn_on"
+  - platform: state
+    entity_id: !input temperature_sensor
+    id: "temp_change"
   
-  - platform: template
-    value_template: >
-      {{ states(temperature_sensor) | float(0) <= temp_off_value }}
-    id: "turn_off"
+  - platform: state
+    entity_id: !input temp_on_helper
+    id: "temp_change"
+  
+  - platform: state
+    entity_id: !input temp_off_helper
+    id: "temp_change"
   
   - platform: state
     entity_id: !input temperature_sensor
@@ -164,16 +166,32 @@ action:
       
       - conditions:
           - condition: trigger
-            id: "turn_on"
-          - condition: state
-            entity_id: !input fan_switch
-            state: "off"
-          - condition: template
-            value_template: "{{ not any_window_open }}"
+            id: "temp_change"
         sequence:
-          - service: switch.turn_on
-            target:
-              entity_id: !input fan_switch
+          - if:
+              - condition: template
+                value_template: >
+                  {{ states(temperature_sensor) | float(0) >= temp_on_value }}
+              - condition: template
+                value_template: "{{ not any_window_open }}"
+              - condition: state
+                entity_id: !input fan_switch
+                state: "off"
+            then:
+              - service: switch.turn_on
+                target:
+                  entity_id: !input fan_switch
+          - if:
+              - condition: template
+                value_template: >
+                  {{ states(temperature_sensor) | float(0) <= temp_off_value }}
+              - condition: state
+                entity_id: !input fan_switch
+                state: "on"
+            then:
+              - service: switch.turn_off
+                target:
+                  entity_id: !input fan_switch
       
       - conditions:
           - condition: trigger
