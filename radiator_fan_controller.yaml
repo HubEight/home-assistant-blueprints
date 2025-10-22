@@ -1,5 +1,5 @@
 blueprint:
-  name: Radiator Fan Controller with Temperature & Window Detection
+  name: Radiator Fan Controller
   description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.0.1"
   domain: automation
   author: HubEight
