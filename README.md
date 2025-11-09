@@ -46,3 +46,22 @@ Automatically controls a radiator fan based on temperature with hysteresis and o
 ### Installation
 #### One-Click Import
 Click the badge above or paste in HA:  
+
+https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator_fan_controller.yaml
+
+
+#### Manual
+1. Copy `radiator_fan_controller.yaml`  
+2. HA → **Blueprints → Import Blueprint** → Paste YAML  
+
+### Creating an Automation
+1. **Automations & Scenes → Create Automation**  
+2. Select **Radiator Fan Controller**  
+3. Fill in entities and thresholds  
+4. Save & enable  
+
+### Support
+Bug? Idea? → [Open an issue on GitHub](https://github.com/HubEight/home-assistant-blueprints/issues)
+
+### License
+MIT License – use and modify freely!
