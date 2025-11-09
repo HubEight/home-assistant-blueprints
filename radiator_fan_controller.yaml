@@ -1,6 +1,6 @@
 blueprint:
   name: Radiator Fan Controller
-  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.1.1"
+  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.1.2"
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator_fan_controller.yaml
@@ -112,22 +112,25 @@ variables:
       false
     {% endif %}
 
-  # Use trigger.from_state for previous temperature (only on temp_change)
-  previous_temp: >
-    {% if trigger.id == "temp_change" and trigger.from_state is defined and trigger.from_state.state not in ['unknown', 'unavailable'] %}
-      {{ trigger.from_state.state | float }}
-    {% else %}
-      {{ states(temperature_sensor) | float(default=0) }}
-    {% endif %}
-
   current_temp: "{{ states(temperature_sensor) | float(default=0) }}"
 
+  # previous_temp only from temperature sensor state change
+  previous_temp: >
+    {% if trigger.id == "temp_change" and trigger.entity_id == temperature_sensor and trigger.from_state.state not in ['unknown', 'unavailable'] %}
+      {{ trigger.from_state.state | float }}
+    {% else %}
+      {{ current_temp }}
+    {% endif %}
+
   case_normal: "{{ temp_on_value > temp_off_value }}"
-  case_equal: "{{ temp_on_value == temp_on_value }}"
+  case_equal: "{{ temp_on_value == temp_off_value }}"
   case_inverted: "{{ temp_on_value < temp_off_value }}"
 
   rising: "{{ current_temp > previous_temp }}"
   falling: "{{ current_temp < previous_temp }}"
+
+  # Helper change triggers only for re-evaluation, not for direction
+  helper_changed: "{{ trigger.id == 'temp_change' and trigger.entity_id in [temp_on_helper, temp_off_helper] }}"
 
 trigger:
   - platform: homeassistant
@@ -163,7 +166,7 @@ trigger:
 
 action:
   - choose:
-      # 1. Turn OFF if window open, sensor unavailable or turn_off trigger
+      # 1. Immediate OFF: window open, sensor bad, or explicit turn_off
       - conditions:
           - condition: or
             conditions:
@@ -182,16 +185,20 @@ action:
             target:
               entity_id: !input fan_switch
 
-      # 2. Main evaluation on check or temp_change
+      # 2. Full logic on temperature change or initial check
       - conditions:
           - condition: or
             conditions:
               - condition: trigger
                 id: "check"
-              - condition: trigger
-                id: "temp_change"
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id: "temp_change"
+                  - condition: template
+                    value_template: "{{ trigger.entity_id == temperature_sensor }}"
         sequence:
-          # --- CASE 1: temp_on > temp_off (classic hysteresis) ---
+          # --- CASE 1: temp_on > temp_off ---
           - if:
               - condition: template
                 value_template: "{{ case_normal }}"
@@ -220,7 +227,7 @@ action:
                 target:
                   entity_id: !input fan_switch
 
-          # --- CASE 2: temp_on == temp_off (sharp threshold, inclusive ON) ---
+          # --- CASE 2: temp_on == temp_off ---
           - if:
               - condition: template
                 value_template: "{{ case_equal }}"
@@ -249,11 +256,10 @@ action:
                 target:
                   entity_id: !input fan_switch
 
-          # --- CASE 3: temp_on < temp_off (path-dependent hysteresis) ---
-          # Only evaluate direction on actual temperature change
+          # --- CASE 3: temp_on < temp_off (path-dependent) ---
           - if:
               - condition: template
-                value_template: "{{ case_inverted and trigger.id == 'temp_change' }}"
+                value_template: "{{ case_inverted }}"
               - condition: template
                 value_template: "{{ rising }}"
               - condition: or
@@ -274,7 +280,7 @@ action:
 
           - if:
               - condition: template
-                value_template: "{{ case_inverted and trigger.id == 'temp_change' }}"
+                value_template: "{{ case_inverted }}"
               - condition: template
                 value_template: "{{ falling }}"
               - condition: or
@@ -290,3 +296,40 @@ action:
               - service: switch.turn_off
                 target:
                   entity_id: !input fan_switch
+
+      # 3. Helper change: ONLY allow turning OFF if needed, NEVER turn ON
+      - conditions:
+          - condition: template
+            value_template: "{{ helper_changed }}"
+          - condition: state
+            entity_id: !input fan_switch
+            state: "on"
+        sequence:
+          # Only turn OFF if current_temp no longer satisfies ON condition
+          - choose:
+              # CASE 1: normal
+              - conditions:
+                  - condition: template
+                    value_template: "{{ case_normal and current_temp < temp_on_value }}"
+                sequence:
+                  - service: switch.turn_off
+                    target:
+                      entity_id: !input fan_switch
+
+              # CASE 2: equal
+              - conditions:
+                  - condition: template
+                    value_template: "{{ case_equal and current_temp < temp_on_value }}"
+                sequence:
+                  - service: switch.turn_off
+                    target:
+                      entity_id: !input fan_switch
+
+              # CASE 3: inverted - check if we fell below temp_off or temp_on
+              - conditions:
+                  - condition: template
+                    value_template: "{{ case_inverted and (current_temp < temp_on_value or current_temp < temp_off_value) }}"
+                sequence:
+                  - service: switch.turn_off
+                    target:
+                      entity_id: !input fan_switch
