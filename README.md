@@ -1,82 +1,48 @@
 # Home Assistant Blueprints
-
 Collection of automation blueprints for Home Assistant.
 
 ## Radiator Fan Controller
-
-Automatically controls a radiator fan based on temperature with hysteresis and optional window contact monitoring.
+Automatically controls a radiator fan based on temperature with hysteresis and optional window contact monitoring.  
+**Version 1.1.3 – enhanced hysteresis logic with three configurable cases**
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FHubEight%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fradiator_fan_controller.yaml)
 
 ### Features
-
-✅ **Temperature-based control** with hysteresis to prevent rapid switching  
-✅ **Flexible temperature settings**: Direct input or dynamic via input_number helpers  
-✅ **Multi-window support**: Optional monitoring of unlimited window sensors  
-✅ **Safety features**: Automatically turns off fan when sensor fails or any window opens  
-✅ **Smart startup**: Checks conditions when Home Assistant starts or automation is enabled
+✅ **Three hysteresis modes** based on `temp_on` vs `temp_off`  
+✅ **Flexible temperature settings**: Direct input or dynamic via `input_number` helpers  
+✅ **Multi-window support**: Fan turns OFF when any window opens  
+✅ **Safety features**: Immediate OFF on sensor failure or open window  
+✅ **Smart startup**: Re-evaluates on HA start or window close  
 
 ### How it works
+| Mode | Condition | ON when | OFF when |
+|------|-----------|---------|----------|
+| **Normal** | `temp_on > temp_off` | `≥ temp_on` | `≤ temp_off` |
+| **Equal** | `temp_on = temp_off` | `≥ temp_on` | `< temp_on` |
+| **Inverted** | `temp_on < temp_off` | Rising **and** crosses **either** threshold | Falling **and** crosses **either** threshold |
 
-- **Fan turns ON** when radiator temperature reaches the set threshold (default: 30°C)
-- **Fan turns OFF** when temperature drops below the lower threshold (default: 28°C)
-- **Fan turns OFF** immediately if any window is opened
-- **Fan evaluates** conditions when windows close or Home Assistant restarts
+- **Helper changes** (`temp_on_helper`, `temp_off_helper`) **do not trigger fan changes** – only temperature changes do  
+- **Path-dependent** in inverted mode: state persists between thresholds  
+- **No helper required** for internal state – uses `trigger.from_state`  
 
 ### Configuration
-
 #### Required:
-- **Temperature Sensor**: Sensor measuring radiator temperature
-- **Fan Switch**: Switch or smart plug controlling the fan
+- **Temperature Sensor**  
+- **Fan Switch**  
 
 #### Optional:
-- **Temperature ON (°C)**: Set direct value or use input_number helper
-- **Temperature OFF (°C)**: Set direct value or use input_number helper  
-- **Window Sensors**: Select any number of window/door contact sensors
+- **Temperature ON (°C)** – direct or via helper  
+- **Temperature OFF (°C)** – direct or via helper  
+- **Window Sensors** – any number  
 
-#### Temperature Control Options:
-
-**Option 1 - Direct Input (Simple):**
-- Set fixed values: e.g., ON at 30°C, OFF at 28°C
-- Best for static setpoints
-
-**Option 2 - Input Number Helpers (Advanced):**
-- Use `input_number` entities for dynamic control
-- Change temperatures on-the-fly via UI or other automations
-- Helper values override direct input
+> **Helper values override direct input**  
+> Changing helpers updates thresholds **without switching the fan** – next temperature change applies new logic.
 
 ### Example Use Cases
-
-- **Single Room**: Control a radiator fan to improve heat distribution
-- **Multiple Rooms**: Create separate automations for each room
-- **Energy Saving**: Stop heating when windows are open
-- **Dynamic Control**: Adjust temperatures based on time of day or other conditions
+- **Classic heating**: `ON=30`, `OFF=28`  
+- **Sharp threshold**: `ON=30`, `OFF=30` → ON at ≥30°C  
+- **Early ON, late OFF**: `ON=28`, `OFF=32` → path-dependent hysteresis  
 
 ### Installation
-
-#### Method 1: One-Click Import (Easiest)
-Click the badge above or use this URL in Home Assistant:
-```
-Settings → Automations & Scenes → Blueprints → Import Blueprint
-```
-Paste: `https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator_fan_controller.yaml`
-
-#### Method 2: Manual Installation
-1. Copy the blueprint code from `radiator_fan_controller.yaml`
-2. In Home Assistant: `Settings → Automations & Scenes → Blueprints → Import Blueprint`
-3. Paste the code in the YAML editor
-
-### Creating an Automation
-
-1. Go to `Settings → Automations & Scenes → Create Automation`
-2. Select **"Radiator Fan Controller"**
-3. Configure your entities and temperature values
-4. Save and enable!
-
-### Support
-
-Found a bug or have a suggestion? Open an issue on GitHub!
-
-### License
-
-MIT License - feel free to use and modify!
+#### One-Click Import
+Click the badge above or paste in HA:  
