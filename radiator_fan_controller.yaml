@@ -1,10 +1,10 @@
 blueprint:
   name: Radiator Fan Controller
-  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.0.1"
+  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.1.0"
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator_fan_controller.yaml
-  
+
   input:
     temperature_sensor:
       name: Temperature Sensor
@@ -14,7 +14,7 @@ blueprint:
           filter:
             - domain: sensor
               device_class: temperature
-    
+
     fan_switch:
       name: Fan Switch
       description: Switch or outlet controlling the radiator fan
@@ -22,7 +22,7 @@ blueprint:
         entity:
           filter:
             - domain: switch
-    
+
     temp_on:
       name: Temperature ON (°C)
       description: Turn fan ON when temperature reaches this value
@@ -33,7 +33,7 @@ blueprint:
           max: 80
           step: 1
           unit_of_measurement: "°C"
-    
+
     temp_on_helper:
       name: Temperature ON Helper (Optional)
       description: Optional input_number helper for dynamic temperature control. If set, this overrides the direct temperature value above.
@@ -43,7 +43,7 @@ blueprint:
           filter:
             - domain: input_number
           multiple: false
-    
+
     temp_off:
       name: Temperature OFF (°C)
       description: Turn fan OFF when temperature drops to this value
@@ -54,7 +54,7 @@ blueprint:
           max: 80
           step: 1
           unit_of_measurement: "°C"
-    
+
     temp_off_helper:
       name: Temperature OFF Helper (Optional)
       description: Optional input_number helper for dynamic temperature control. If set, this overrides the direct temperature value above.
@@ -64,7 +64,7 @@ blueprint:
           filter:
             - domain: input_number
           multiple: false
-    
+
     window_sensors:
       name: Window Sensors (Optional)
       description: Window contact sensors. Fan turns OFF when any window is open.
@@ -73,7 +73,7 @@ blueprint:
         entity:
           filter:
             - domain: binary_sensor
-              device_class: 
+              device_class:
                 - window
                 - door
                 - opening
@@ -90,18 +90,21 @@ variables:
   temp_off_helper: !input temp_off_helper
   temp_on_direct: !input temp_on
   temp_off_direct: !input temp_off
+
   temp_on_value: >
-    {% if temp_on_helper %}
+    {% if temp_on_helper | length > 0 %}
       {{ states(temp_on_helper) | float }}
     {% else %}
       {{ temp_on_direct }}
     {% endif %}
+
   temp_off_value: >
-    {% if temp_off_helper %}
+    {% if temp_off_helper | length > 0 %}
       {{ states(temp_off_helper) | float }}
     {% else %}
       {{ temp_off_direct }}
     {% endif %}
+
   any_window_open: >
     {% if window_sensors | length > 0 %}
       {{ expand(window_sensors) | selectattr('state', 'eq', 'on') | list | count > 0 }}
@@ -109,35 +112,47 @@ variables:
       false
     {% endif %}
 
+  current_temp: "{{ states(temperature_sensor) | float(default=0) }}"
+  previous_temp: "{{ state_attr('automation.' ~ this.entity_id, 'previous_temp') | float(default=current_temp) }}"
+
+  # Case detection
+  case_normal: "{{ temp_on_value > temp_off_value }}"
+  case_equal: "{{ temp_on_value == temp_off_value }}"
+  case_inverted: "{{ temp_on_value < temp_off_value }}"
+
+  # Direction detection
+  rising: "{{ current_temp > previous_temp }}"
+  falling: "{{ current_temp < previous_temp }}"
+
 trigger:
   - platform: homeassistant
     event: start
     id: "check"
-  
+
   - platform: state
     entity_id: !input temperature_sensor
     id: "temp_change"
-  
+
   - platform: state
     entity_id: !input temp_on_helper
     id: "temp_change"
-  
+
   - platform: state
     entity_id: !input temp_off_helper
     id: "temp_change"
-  
+
   - platform: state
     entity_id: !input temperature_sensor
-    to: 
+    to:
       - unavailable
       - unknown
     id: "turn_off"
-  
+
   - platform: state
     entity_id: !input window_sensors
     to: "on"
     id: "turn_off"
-  
+
   - platform: state
     entity_id: !input window_sensors
     to: "off"
@@ -145,33 +160,47 @@ trigger:
 
 action:
   - choose:
+      # 1. Turn OFF if window open, sensor unavailable or explicit turn_off trigger
       - conditions:
-          - condition: trigger
-            id: "check"
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ any_window_open }}"
+              - condition: state
+                entity_id: !input temperature_sensor
+                state: [unavailable, unknown]
+              - condition: trigger
+                id: "turn_off"
+          - condition: state
+            entity_id: !input fan_switch
+            state: "on"
         sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input fan_switch
+
+      # 2. Main evaluation on check or temp_change
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: trigger
+                id: "check"
+              - condition: trigger
+                id: "temp_change"
+        sequence:
+          # Store current temperature for next run
+          - service: automation.set_automation_attribute
+            data:
+              entity_id: "{{ this.entity_id }}"
+              attribute: previous_temp
+              value: "{{ current_temp }}"
+
+          # --- CASE 1: temp_on > temp_off (classic hysteresis) ---
           - if:
               - condition: template
-                value_template: >
-                  {{ states(temperature_sensor) | float(0) >= temp_on_value }}
+                value_template: "{{ case_normal }}"
               - condition: template
-                value_template: "{{ not any_window_open }}"
-            then:
-              - service: switch.turn_on
-                target:
-                  entity_id: !input fan_switch
-            else:
-              - service: switch.turn_off
-                target:
-                  entity_id: !input fan_switch
-      
-      - conditions:
-          - condition: trigger
-            id: "temp_change"
-        sequence:
-          - if:
-              - condition: template
-                value_template: >
-                  {{ states(temperature_sensor) | float(0) >= temp_on_value }}
+                value_template: "{{ current_temp >= temp_on_value }}"
               - condition: template
                 value_template: "{{ not any_window_open }}"
               - condition: state
@@ -181,10 +210,12 @@ action:
               - service: switch.turn_on
                 target:
                   entity_id: !input fan_switch
+
           - if:
               - condition: template
-                value_template: >
-                  {{ states(temperature_sensor) | float(0) <= temp_off_value }}
+                value_template: "{{ case_normal }}"
+              - condition: template
+                value_template: "{{ current_temp <= temp_off_value }}"
               - condition: state
                 entity_id: !input fan_switch
                 state: "on"
@@ -192,14 +223,75 @@ action:
               - service: switch.turn_off
                 target:
                   entity_id: !input fan_switch
-      
-      - conditions:
-          - condition: trigger
-            id: "turn_off"
-          - condition: state
-            entity_id: !input fan_switch
-            state: "on"
-        sequence:
-          - service: switch.turn_off
-            target:
-              entity_id: !input fan_switch
+
+          # --- CASE 2: temp_on == temp_off (sharp threshold, inclusive ON) ---
+          - if:
+              - condition: template
+                value_template: "{{ case_equal }}"
+              - condition: template
+                value_template: "{{ current_temp >= temp_on_value }}"
+              - condition: template
+                value_template: "{{ not any_window_open }}"
+              - condition: state
+                entity_id: !input fan_switch
+                state: "off"
+            then:
+              - service: switch.turn_on
+                target:
+                  entity_id: !input fan_switch
+
+          - if:
+              - condition: template
+                value_template: "{{ case_equal }}"
+              - condition: template
+                value_template: "{{ current_temp < temp_on_value }}"
+              - condition: state
+                entity_id: !input fan_switch
+                state: "on"
+            then:
+              - service: switch.turn_off
+                target:
+                  entity_id: !input fan_switch
+
+          # --- CASE 3: temp_on < temp_off (path-dependent hysteresis) ---
+          # Turn ON only when rising and crossing temp_on OR temp_off
+          - if:
+              - condition: template
+                value_template: "{{ case_inverted }}"
+              - condition: template
+                value_template: "{{ rising }}"
+              - condition: or
+                conditions:
+                  - condition: template
+                    value_template: "{{ current_temp >= temp_on_value and previous_temp < temp_on_value }}"
+                  - condition: template
+                    value_template: "{{ current_temp >= temp_off_value and previous_temp < temp_off_value }}"
+              - condition: template
+                value_template: "{{ not any_window_open }}"
+              - condition: state
+                entity_id: !input fan_switch
+                state: "off"
+            then:
+              - service: switch.turn_on
+                target:
+                  entity_id: !input fan_switch
+
+          # Turn OFF only when falling and crossing temp_on OR temp_off
+          - if:
+              - condition: template
+                value_template: "{{ case_inverted }}"
+              - condition: template
+                value_template: "{{ falling }}"
+              - condition: or
+                conditions:
+                  - condition: template
+                    value_template: "{{ current_temp <= temp_on_value and previous_temp > temp_on_value }}"
+                  - condition: template
+                    value_template: "{{ current_temp <= temp_off_value and previous_temp > temp_off_value }}"
+              - condition: state
+                entity_id: !input fan_switch
+                state: "on"
+            then:
+              - service: switch.turn_off
+                target:
+                  entity_id: !input fan_switch
