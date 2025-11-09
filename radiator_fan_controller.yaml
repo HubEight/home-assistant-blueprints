@@ -1,6 +1,6 @@
 blueprint:
   name: Radiator Fan Controller
-  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.1.0"
+  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.1.1"
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator_fan_controller.yaml
