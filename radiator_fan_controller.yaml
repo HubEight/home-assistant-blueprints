@@ -1,6 +1,6 @@
 blueprint:
   name: Radiator Fan Controller
-  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.1.2"
+  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.1.3"
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator_fan_controller.yaml
@@ -129,7 +129,7 @@ variables:
   rising: "{{ current_temp > previous_temp }}"
   falling: "{{ current_temp < previous_temp }}"
 
-  # Helper change triggers only for re-evaluation, not for direction
+  # Helper change only triggers re-evaluation on next temp change
   helper_changed: "{{ trigger.id == 'temp_change' and trigger.entity_id in [temp_on_helper, temp_off_helper] }}"
 
 trigger:
@@ -185,7 +185,7 @@ action:
             target:
               entity_id: !input fan_switch
 
-      # 2. Full logic on temperature change or initial check
+      # 2. Full logic: only on temperature change or initial check
       - conditions:
           - condition: or
             conditions:
@@ -297,39 +297,8 @@ action:
                 target:
                   entity_id: !input fan_switch
 
-      # 3. Helper change: ONLY allow turning OFF if needed, NEVER turn ON
+      # 3. Helper change: DO NOTHING to fan (only updates values for next temp change)
       - conditions:
           - condition: template
             value_template: "{{ helper_changed }}"
-          - condition: state
-            entity_id: !input fan_switch
-            state: "on"
-        sequence:
-          # Only turn OFF if current_temp no longer satisfies ON condition
-          - choose:
-              # CASE 1: normal
-              - conditions:
-                  - condition: template
-                    value_template: "{{ case_normal and current_temp < temp_on_value }}"
-                sequence:
-                  - service: switch.turn_off
-                    target:
-                      entity_id: !input fan_switch
-
-              # CASE 2: equal
-              - conditions:
-                  - condition: template
-                    value_template: "{{ case_equal and current_temp < temp_on_value }}"
-                sequence:
-                  - service: switch.turn_off
-                    target:
-                      entity_id: !input fan_switch
-
-              # CASE 3: inverted - check if we fell below temp_off or temp_on
-              - conditions:
-                  - condition: template
-                    value_template: "{{ case_inverted and (current_temp < temp_on_value or current_temp < temp_off_value) }}"
-                sequence:
-                  - service: switch.turn_off
-                    target:
-                      entity_id: !input fan_switch
+        sequence: []
