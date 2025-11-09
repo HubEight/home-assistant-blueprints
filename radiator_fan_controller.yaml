@@ -36,7 +36,7 @@ blueprint:
 
     temp_on_helper:
       name: Temperature ON Helper (Optional)
-      description: Optional input_number helper for dynamic temperature control. If set, this overrides the direct temperature value above.
+      description: Optional input_number helper for dynamic temperature control.
       default: []
       selector:
         entity:
@@ -57,7 +57,7 @@ blueprint:
 
     temp_off_helper:
       name: Temperature OFF Helper (Optional)
-      description: Optional input_number helper for dynamic temperature control. If set, this overrides the direct temperature value above.
+      description: Optional input_number helper for dynamic temperature control.
       default: []
       selector:
         entity:
@@ -112,15 +112,20 @@ variables:
       false
     {% endif %}
 
-  current_temp: "{{ states(temperature_sensor) | float(default=0) }}"
-  previous_temp: "{{ state_attr('automation.' ~ this.entity_id, 'previous_temp') | float(default=current_temp) }}"
+  # Use trigger.from_state for previous temperature (only on temp_change)
+  previous_temp: >
+    {% if trigger.id == "temp_change" and trigger.from_state is defined and trigger.from_state.state not in ['unknown', 'unavailable'] %}
+      {{ trigger.from_state.state | float }}
+    {% else %}
+      {{ states(temperature_sensor) | float(default=0) }}
+    {% endif %}
 
-  # Case detection
+  current_temp: "{{ states(temperature_sensor) | float(default=0) }}"
+
   case_normal: "{{ temp_on_value > temp_off_value }}"
-  case_equal: "{{ temp_on_value == temp_off_value }}"
+  case_equal: "{{ temp_on_value == temp_on_value }}"
   case_inverted: "{{ temp_on_value < temp_off_value }}"
 
-  # Direction detection
   rising: "{{ current_temp > previous_temp }}"
   falling: "{{ current_temp < previous_temp }}"
 
@@ -143,9 +148,7 @@ trigger:
 
   - platform: state
     entity_id: !input temperature_sensor
-    to:
-      - unavailable
-      - unknown
+    to: [unavailable, unknown]
     id: "turn_off"
 
   - platform: state
@@ -160,7 +163,7 @@ trigger:
 
 action:
   - choose:
-      # 1. Turn OFF if window open, sensor unavailable or explicit turn_off trigger
+      # 1. Turn OFF if window open, sensor unavailable or turn_off trigger
       - conditions:
           - condition: or
             conditions:
@@ -188,13 +191,6 @@ action:
               - condition: trigger
                 id: "temp_change"
         sequence:
-          # Store current temperature for next run
-          - service: automation.set_automation_attribute
-            data:
-              entity_id: "{{ this.entity_id }}"
-              attribute: previous_temp
-              value: "{{ current_temp }}"
-
           # --- CASE 1: temp_on > temp_off (classic hysteresis) ---
           - if:
               - condition: template
@@ -254,10 +250,10 @@ action:
                   entity_id: !input fan_switch
 
           # --- CASE 3: temp_on < temp_off (path-dependent hysteresis) ---
-          # Turn ON only when rising and crossing temp_on OR temp_off
+          # Only evaluate direction on actual temperature change
           - if:
               - condition: template
-                value_template: "{{ case_inverted }}"
+                value_template: "{{ case_inverted and trigger.id == 'temp_change' }}"
               - condition: template
                 value_template: "{{ rising }}"
               - condition: or
@@ -276,10 +272,9 @@ action:
                 target:
                   entity_id: !input fan_switch
 
-          # Turn OFF only when falling and crossing temp_on OR temp_off
           - if:
               - condition: template
-                value_template: "{{ case_inverted }}"
+                value_template: "{{ case_inverted and trigger.id == 'temp_change' }}"
               - condition: template
                 value_template: "{{ falling }}"
               - condition: or
