@@ -4,8 +4,6 @@ Collection of automation blueprints for Home Assistant.
 
 ## Radiator Fan Controller
 
-**Version:** 1.0.1
-
 Automatically controls a radiator fan based on temperature with hysteresis and optional window contact monitoring.
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FHubEight%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fradiator_fan_controller.yaml)
