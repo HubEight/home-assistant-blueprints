@@ -1,7 +1,8 @@
 <!doctype html>
-<!-- Alarmo Link 1.4.0 - github.com/HubEight/home-assistant-blueprints
-     This page and the blueprint are a pair and share a version. Copied by
-     hand, so nothing updates it for you - check here before reporting a bug. -->
+<!-- Alarmo Link - github.com/HubEight/home-assistant-blueprints
+     This page and the blueprint are a pair and share a version, stated once in
+     VERSION below and shown at the foot of the setup screen. The page is copied
+     by hand and nothing updates it, so check it before reporting a bug. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -139,7 +140,7 @@
 
   <!-- Setup only. The button page is used in a hurry, in the dark, by someone
        who did not install this - a version number has no business there. -->
-  <p class="version">Alarmo Link 1.4.0</p>
+  <p class="version" id="version"></p>
 </main>
 
 <script>
@@ -155,6 +156,9 @@
 // --- Language ---------------------------------------------------------------
 // Add a block below to translate the page; the key names are what the markup
 // refers to through data-i18n. Anything missing falls back to English.
+
+// The one place this file states its version.
+var VERSION = '1.4.0';
 
 var STRINGS = {
   en: {
@@ -324,6 +328,8 @@ function setupWizard() {
     for (var i = 0; i < bytes.length; i++) id += alphabet[bytes[i] & 63];
     return id;
   }
+
+  document.getElementById('version').textContent = 'Alarmo Link ' + VERSION;
 
   var nameInput = document.getElementById('alarm-name');
   var langSelect = document.getElementById('alarm-lang');

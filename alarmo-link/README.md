@@ -1,8 +1,7 @@
 # Alarmo Link
 
 Arm and disarm [Alarmo](https://github.com/nielsfaber/alarmo) from a private
-link — no Home Assistant account, no app, no login.  
-**Version 1.4.0 – the link can carry the name and the language**
+link — no Home Assistant account, no app, no login.
 
 For the people who live in your home but do not use Home Assistant, and for
 cleaners or house sitters who should be able to set the alarm and nothing else.
@@ -193,9 +192,9 @@ truncated. Messengers sometimes cut long URLs; send it as plain text.
   the link and overrides the browser. Both extras are independent: either, both
   or neither. The dropdown is built from the translation table, so adding a
   block adds it to the list
-- The page states its version, in a comment at the top of the file and at the
-  foot of the setup screen. It is copied by hand and nothing updates it, so it
-  can silently fall behind the blueprint it is paired with
+- The page states its version at the foot of the setup screen. It is copied by
+  hand and nothing updates it, so it can silently fall behind the blueprint it
+  is paired with
 
 ### 1.3.0
 
