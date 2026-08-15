@@ -4,6 +4,11 @@ blueprint:
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator-fan-controller/radiator_fan_controller.yaml
+  # match: any on a state condition arrived in 2022.5. Without this line an
+  # older installation fails the import with "extra keys not allowed @ match",
+  # which reads like a broken blueprint rather than an outdated Home Assistant.
+  homeassistant:
+    min_version: "2022.5.0"
 
   input:
     temperature_sensor:
