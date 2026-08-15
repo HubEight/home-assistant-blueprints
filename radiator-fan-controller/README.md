@@ -71,6 +71,9 @@ https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator-fan-con
   states would have left both alone
 - Existing automations are unaffected; a single entity stored as a plain string
   still works
+- Declares `min_version: 2022.5.0`, the release that brought `match: any`. An
+  older installation now says so on import instead of failing with a schema
+  error that reads like a broken blueprint
 
 ### 1.1.4
 
