@@ -23,12 +23,6 @@ blueprint:
     replace both webhook IDs.
 
 
-    **Name it after the person when you save** - `Alarmo Link: <name>`. Home
-    Assistant asks for a name and suggests the blueprint's, so without this
-    every automation ends up called "Alarmo Link" and you cannot tell them
-    apart.
-
-
     **The link is the password.** Anyone holding it can arm and disarm. Share it
     the way you would share a house key, and serve Home Assistant over HTTPS.
 
@@ -38,7 +32,7 @@ blueprint:
     moment you sent someone the link.
 
 
-    Version 1.1.2
+    Version 1.1.1
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/alarmo-link/alarmo_link.yaml

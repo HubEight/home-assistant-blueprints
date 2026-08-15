@@ -2,7 +2,7 @@
 
 Arm and disarm [Alarmo](https://github.com/nielsfaber/alarmo) from a private
 link — no Home Assistant account, no app, no login.  
-**Version 1.1.2 – a lock icon in front of the name**
+**Version 1.1.1 – a lock icon in front of the name**
 
 For the people who live in your home but do not use Home Assistant, and for
 cleaners or house sitters who should be able to set the alarm and nothing else.
@@ -77,12 +77,6 @@ Neither works alone.
 3. **Settings → Automations → Create Automation → From blueprint → Alarmo Link.**
    Fill in the name, the Alarmo code, and paste the two generated IDs. Save.
 
-   When Home Assistant asks for the automation's name, put the person in it —
-   `Alarmo Link: <name>`. It suggests the blueprint's name, so otherwise every
-   automation you create is called "Alarmo Link" and you cannot tell them apart.
-   A blueprint cannot set this for you: the saved automation's own name always
-   wins over anything the blueprint provides.
-
 4. Send the person the link. On iOS and Android, *Add to Home Screen* turns it
    into a full-screen icon.
 
@@ -146,18 +140,18 @@ truncated. Messengers sometimes cut long URLs; send it as plain text.
 
 ## Changelog
 
-### 1.1.2
+### 1.1.1
 
 - The blueprint is now called `🔒 Alarmo Link`. Blueprints have no icon field —
   an emoji at the start of the name is how it is done
-
-### 1.1.1
-
 - The notification field is no longer inside a section. Home Assistant renders
   every section as an expansion panel whose header can always be clicked shut,
   and `collapsed` only sets the initial state — so the one option most people
   should set could be hidden by accident. It is now a plain field below the
   sections
+- Dropped the note about naming the automation. Whether Home Assistant asks for
+  a name depends on where you start from, so the note was wrong as often as it
+  was right
 
 ### 1.1.0
 
