@@ -29,6 +29,7 @@ from homeassistant.util.yaml import loader
 PATH = sys.argv[1] if len(sys.argv) > 1 else (
     "radiator-fan-controller/radiator_fan_controller.yaml")
 SENSOR, SWITCH, WIN = "sensor.flow", "switch.fan", "binary_sensor.win"
+SWITCH2, FAN = "switch.fan2", "fan.roof_vent"
 
 TEMP_CHANGE = lambda a, b: {
     "platform": "state", "id": "temp_change", "entity_id": SENSOR,
@@ -66,6 +67,28 @@ CASES = [
     # --- sensor failure ---
     ("sensor goes unavailable, fan on", {}, {"platform": "state", "id": "turn_off", "entity_id": SENSOR,
      "from_state": State(SENSOR, "40"), "to_state": State(SENSOR, "unavailable")}, "unavailable", "on", None, "turn_off"),
+# --- several devices: the point is "at least one", not "all" ---
+    # Without match: any a mixed pair would leave the idle one standing.
+    ("two devices, both off: 39->40", {"fan_switch": [SWITCH, SWITCH2]}, TEMP_CHANGE(39, 40), "40",
+     {SWITCH: "off", SWITCH2: "off"}, None, "turn_on"),
+    ("two devices, one already on: 39->40", {"fan_switch": [SWITCH, SWITCH2]}, TEMP_CHANGE(39, 40), "40",
+     {SWITCH: "on", SWITCH2: "off"}, None, "turn_on"),
+    ("two devices, both on: 39->40", {"fan_switch": [SWITCH, SWITCH2]}, TEMP_CHANGE(39, 40), "40",
+     {SWITCH: "on", SWITCH2: "on"}, None, None),
+    ("two devices, one on: 29->28", {"fan_switch": [SWITCH, SWITCH2]}, TEMP_CHANGE(29, 28), "28",
+     {SWITCH: "on", SWITCH2: "off"}, None, "turn_off"),
+    ("two devices, both off: 29->28", {"fan_switch": [SWITCH, SWITCH2]}, TEMP_CHANGE(29, 28), "28",
+     {SWITCH: "off", SWITCH2: "off"}, None, None),
+
+    # --- a fan entity, not a switch: switch.turn_on would not reach it ---
+    ("fan entity: 39->40, off", {"fan_switch": [FAN]}, TEMP_CHANGE(39, 40), "40",
+     {FAN: "off"}, None, "turn_on"),
+    ("fan + switch mixed: 39->40, both off", {"fan_switch": [FAN, SWITCH]}, TEMP_CHANGE(39, 40), "40",
+     {FAN: "off", SWITCH: "off"}, None, "turn_on"),
+
+    # --- a single entity as a plain string, as older automations stored it ---
+    ("single entity, stored as a string", {"fan_switch": SWITCH}, TEMP_CHANGE(39, 40), "40",
+     {SWITCH: "off"}, None, "turn_on"),
 ]
 
 
@@ -77,7 +100,12 @@ async def main():
     failures = 0
     for label, extra, trigger, temp, sw, win, expected in CASES:
         hass.states.async_set(SENSOR, temp, {"device_class": "temperature"})
-        hass.states.async_set(SWITCH, sw)
+        # sw is either one state for the single switch, or a dict per entity
+        if isinstance(sw, dict):
+            for entity, value in sw.items():
+                hass.states.async_set(entity, value)
+        else:
+            hass.states.async_set(SWITCH, sw)
         if win is not None:
             hass.states.async_set(WIN, win, {"device_class": "window"})
         await hass.async_block_till_done()
@@ -90,7 +118,7 @@ async def main():
 
         calls = []
         for service in ("turn_on", "turn_off"):
-            hass.services.async_register("switch", service,
+            hass.services.async_register("homeassistant", service,
                                          lambda call, s=service: calls.append(s))
 
         rendered = cfg["variables"].async_render(hass, {"trigger": trigger})
