@@ -285,6 +285,29 @@ console.log('language selection: ok  (en, de, fallback, second preference)');
   console.log('four combinations: ok  (round trip generate -> open)');
 }
 
+// --- A crafted link cannot redirect the request ----------------------------
+{
+  // The id is attacker-controlled if someone hands out a doctored link, and it
+  // is pasted into a URL path. Unencoded, "../../x" walks out of /api/webhook/.
+  for (const [id, expected] of [
+    ['nsK1FFGlxf1r9ydg0LtRn0mJv1eUOKyY', '/api/webhook/nsK1FFGlxf1r9ydg0LtRn0mJv1eUOKyY'],
+    ['../../auth/token', '/api/webhook/..%2F..%2Fauth%2Ftoken'],
+    ['../../../config/core/update', '/api/webhook/..%2F..%2F..%2Fconfig%2Fcore%2Fupdate'],
+    ['a?redirect=x', '/api/webhook/a%3Fredirect%3Dx'],
+  ]) {
+    const posted = [];
+    const { els } = run('#' + id + ',B', ['en-US'], (url, opt) => {
+      posted.push([url, opt.method]);
+      return Promise.resolve({ ok: true });
+    });
+    els.arm.onclick();
+    const resolved = new URL(posted[0][0], 'https://ha.example.com/local/alarmo-link.html');
+    assert.strictEqual(resolved.pathname + resolved.search, expected, `id ${id}`);
+    assert.strictEqual(posted[0][1], 'POST');
+  }
+  console.log('crafted ids: ok  (stay inside /api/webhook/, plain ids untouched)');
+}
+
 // --- The file states its version once, and shows it on the setup screen -----
 {
   const stated = SRC.match(/^\s*var VERSION\s*=\s*'(\d+\.\d+\.\d+)'/m);
