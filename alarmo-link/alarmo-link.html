@@ -63,27 +63,29 @@
 <body>
 
 <main id="panel" hidden>
-  <!-- Rename this to whatever the alarm is called. -->
+  <!-- Rename this to whatever the alarm is called. Not translated: it is a
+       name, and it is the one line most people will want to change. -->
   <h1>Alarm</h1>
-  <button id="arm">&#128274; Arm</button>
-  <button id="disarm">&#128275; Disarm</button>
+  <button id="arm" data-i18n="arm">&#128274; Arm</button>
+  <button id="disarm" data-i18n="disarm">&#128275; Disarm</button>
   <p id="status"></p>
 </main>
 
 <main id="setup" hidden>
-  <h1>Alarmo Link &ndash; Setup</h1>
-  <p class="hint">
+  <h1 data-i18n="setupTitle">Alarmo Link &ndash; Setup</h1>
+  <p class="hint" data-i18n="setupHint">
     Generate a pair of webhook IDs, paste them into the blueprint, then send the
     person the link below. Anyone holding that link can arm and disarm, so share
     it the way you would share a house key.
   </p>
-  <button id="generate">Generate IDs</button>
+  <button id="generate" data-i18n="generate">Generate IDs</button>
 
   <div id="result" hidden>
     <div class="field">
       <div class="row">
-        <label>Webhook ID &ndash; arm</label>
-        <button class="icon" id="copy-arm" title="Copy" aria-label="Copy the arm webhook ID">
+        <label data-i18n="labelArm">Webhook ID &ndash; arm</label>
+        <button class="icon" id="copy-arm" title="Copy"
+                aria-label="Copy the arm webhook ID" data-i18n-label="copyArmLabel">
           <svg class="mark" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="9" height="9" rx="2"/><path d="M3.5 10.5h-1a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v1"/></svg>
           <svg class="tick" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
         </button>
@@ -92,8 +94,9 @@
     </div>
     <div class="field">
       <div class="row">
-        <label>Webhook ID &ndash; disarm</label>
-        <button class="icon" id="copy-disarm" title="Copy" aria-label="Copy the disarm webhook ID">
+        <label data-i18n="labelDisarm">Webhook ID &ndash; disarm</label>
+        <button class="icon" id="copy-disarm" title="Copy"
+                aria-label="Copy the disarm webhook ID" data-i18n-label="copyDisarmLabel">
           <svg class="mark" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="9" height="9" rx="2"/><path d="M3.5 10.5h-1a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v1"/></svg>
           <svg class="tick" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
         </button>
@@ -102,12 +105,12 @@
     </div>
     <div class="field">
       <div class="row">
-        <label>Link for this person</label>
+        <label data-i18n="labelLink">Link for this person</label>
       </div>
       <code id="link"></code>
     </div>
     <div class="field">
-      <button id="copy">Copy link</button>
+      <button id="copy" data-i18n="copyLink">Copy link</button>
     </div>
   </div>
 </main>
@@ -121,6 +124,83 @@
 // The panel reports that the command was accepted, not the real state of the
 // alarm. Real state would need an API token in the page, which is full access
 // to Home Assistant. Use the blueprint's notification instead.
+
+// --- Language ---------------------------------------------------------------
+// Add a block below to translate the page; the key names are what the markup
+// refers to through data-i18n. Anything missing falls back to English.
+
+var STRINGS = {
+  en: {
+    arm: '🔒 Arm',
+    disarm: '🔓 Disarm',
+    sending: 'One moment ...',
+    armSent: 'Arm command sent',
+    disarmSent: 'Disarm command sent',
+    failed: 'Did not work - please call',
+    setupTitle: 'Alarmo Link – Setup',
+    setupHint: 'Generate a pair of webhook IDs, paste them into the blueprint, ' +
+               'then send the person the link below. Anyone holding that link ' +
+               'can arm and disarm, so share it the way you would share a house key.',
+    generate: 'Generate IDs',
+    labelArm: 'Webhook ID – arm',
+    labelDisarm: 'Webhook ID – disarm',
+    labelLink: 'Link for this person',
+    copy: 'Copy',
+    copyArmLabel: 'Copy the arm webhook ID',
+    copyDisarmLabel: 'Copy the disarm webhook ID',
+    copyLink: 'Copy link',
+    copied: 'Copied',
+    copyManual: 'Press Ctrl+C / long-press to copy'
+  },
+  de: {
+    arm: '🔒 Scharf schalten',
+    disarm: '🔓 Unscharf schalten',
+    sending: 'Einen Moment ...',
+    armSent: 'Scharfschalten gesendet',
+    disarmSent: 'Unscharfschalten gesendet',
+    failed: 'Hat nicht geklappt - bitte anrufen',
+    setupTitle: 'Alarmo Link – Einrichtung',
+    setupHint: 'Zwei Webhook-IDs erzeugen, ins Blueprint eintragen und der ' +
+               'Person den Link unten schicken. Wer den Link hat, kann scharf ' +
+               'und unscharf schalten - gib ihn so weiter, wie du einen ' +
+               'Haustürschlüssel weitergibst.',
+    generate: 'IDs erzeugen',
+    labelArm: 'Webhook-ID – scharf',
+    labelDisarm: 'Webhook-ID – unscharf',
+    labelLink: 'Link für diese Person',
+    copy: 'Kopieren',
+    copyArmLabel: 'Webhook-ID zum Scharfschalten kopieren',
+    copyDisarmLabel: 'Webhook-ID zum Unscharfschalten kopieren',
+    copyLink: 'Link kopieren',
+    copied: 'Kopiert',
+    copyManual: 'Mit Strg+C kopieren / lange drücken'
+  }
+};
+
+var langs = navigator.languages || [navigator.language || 'en'];
+var lang = 'en';
+for (var l = 0; l < langs.length; l++) {
+  var code = String(langs[l]).slice(0, 2).toLowerCase();
+  if (STRINGS[code]) { lang = code; break; }
+}
+var T = STRINGS[lang];
+document.documentElement.lang = lang;
+
+each('[data-i18n]', function (el, key) { el.textContent = T[key]; }, 'data-i18n');
+each('[data-i18n-label]', function (el, key) {
+  el.title = T.copy;
+  el.setAttribute('aria-label', T[key]);
+}, 'data-i18n-label');
+
+function each(selector, fn, attr) {
+  var nodes = document.querySelectorAll(selector);
+  for (var i = 0; i < nodes.length; i++) {
+    var key = nodes[i].getAttribute(attr);
+    if (T[key]) fn(nodes[i], key);
+  }
+}
+
+// --- Mode -------------------------------------------------------------------
 
 var ids = location.hash.slice(1).split(',');
 
@@ -141,7 +221,7 @@ function setupPanel() {
   function send(i, text) {
     buttons.forEach(function (b) { b.disabled = true; });
     out.className = '';
-    out.textContent = 'One moment ...';
+    out.textContent = T.sending;
 
     fetch('/api/webhook/' + ids[i], { method: 'POST' })
       .then(function (r) {
@@ -150,15 +230,15 @@ function setupPanel() {
       })
       .catch(function () {
         out.className = 'err';
-        out.textContent = 'Did not work - please call';
+        out.textContent = T.failed;
       })
       .finally(function () {
         buttons.forEach(function (b) { b.disabled = false; });
       });
   }
 
-  buttons[0].onclick = function () { send(0, 'Arm command sent'); };
-  buttons[1].onclick = function () { send(1, 'Disarm command sent'); };
+  buttons[0].onclick = function () { send(0, T.armSent); };
+  buttons[1].onclick = function () { send(1, T.disarmSent); };
 }
 
 // --- Wizard: generate a pair of IDs and show the finished link --------------
@@ -190,7 +270,7 @@ function setupWizard() {
     disarmEl.textContent = disarm;
     linkEl.textContent = location.origin + location.pathname + '#' + arm + ',' + disarm;
     result.hidden = false;
-    copyBtn.textContent = 'Copy link';
+    copyBtn.textContent = T.copyLink;
   };
 
   copy(document.getElementById('copy-arm'), armEl);
@@ -210,7 +290,7 @@ function setupWizard() {
 
     function confirm() {
       if (btn === copyBtn) {
-        btn.textContent = 'Copied';
+        btn.textContent = T.copied;
       } else {
         btn.classList.add('ok');
         setTimeout(function () { btn.classList.remove('ok'); }, 1500);
@@ -225,7 +305,7 @@ function setupWizard() {
       var sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
-      if (btn === copyBtn) btn.textContent = 'Press Ctrl+C / long-press to copy';
+      if (btn === copyBtn) btn.textContent = T.copyManual;
     }
   }
 }
