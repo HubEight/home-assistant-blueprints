@@ -2,7 +2,7 @@
 
 Arm and disarm [Alarmo](https://github.com/nielsfaber/alarmo) from a private
 link — no Home Assistant account, no app, no login.  
-**Version 1.2.0 – German translation, and a Telegram notification fix**
+**Version 1.3.0 – the link can carry the name of the alarm**
 
 For the people who live in your home but do not use Home Assistant, and for
 cleaners or house sitters who should be able to set the alarm and nothing else.
@@ -10,7 +10,7 @@ They get a URL. It looks like this on their phone:
 
 ```
 ┌────────────────────────┐
-│         Alarm          │
+│          Flat          │
 │                        │
 │   🔒      Arm          │
 │                        │
@@ -50,11 +50,15 @@ Neither works alone.
    code belongs to, so a shared code names the wrong one.
 
 2. Open `https://<your-ha-url>/local/alarmo-link.html` — with no `#` in the
-   address. That is the setup screen. Press **Generate IDs**.
+   address. That is the setup screen. Name the alarm if you like, then press
+   **Generate IDs**.
 
    ```
    ┌──────────────────────────────────────┐
    │ Alarmo Link – Setup                  │
+   │                                      │
+   │ NAME OF THIS ALARM (OPTIONAL)        │
+   │ [ Flat                             ] │
    │                                      │
    │        [  Generate IDs  ]            │
    │                                      │
@@ -66,7 +70,7 @@ Neither works alone.
    │                                      │
    │ LINK FOR THIS PERSON                 │
    │ https://ha.example.com/local/alarmo- │
-   │ link.html#nsK1FFGl…,Pcl1LYdY…        │
+   │ link.html#nsK1FFGl…,Pcl1LYdY…,Flat   │
    │                                      │
    │        [   Copy link    ]            │
    └──────────────────────────────────────┘
@@ -141,8 +145,8 @@ var STRINGS = {
 ```
 
 Two things stay untranslated on purpose: the heading of the button page, which
-is the alarm's name and the line most people edit anyway, and the blueprint
-itself, since Home Assistant has no way for a blueprint to ship translations.
+is a name you supply, and the blueprint itself, since Home Assistant has no way
+for a blueprint to ship translations.
 
 ## Troubleshooting
 
@@ -164,6 +168,14 @@ from the internet, or a reverse proxy is blocking `/api/webhook/`.
 truncated. Messengers sometimes cut long URLs; send it as plain text.
 
 ## Changelog
+
+### 1.3.0
+
+- The setup screen has an optional **Name of this alarm** field. It becomes a
+  third value in the link, and the button page shows it as its heading and its
+  tab title. One copy of the page now serves any number of alarms — previously
+  the heading had to be edited in the file, so a second alarm meant a second
+  copy. Links without a name keep working
 
 ### 1.2.0
 
