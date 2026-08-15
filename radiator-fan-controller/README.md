@@ -1,7 +1,7 @@
 # Radiator Fan Controller
 
 Automatically controls a radiator fan based on temperature with hysteresis and optional window contact monitoring.  
-**Version 1.1.4 – fixes a bug that kept the fan from ever switching on**
+**Version 1.2.0 – several fans at once, and `fan` entities as well as switches**
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FHubEight%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fradiator-fan-controller%2Fradiator_fan_controller.yaml)
 
@@ -26,7 +26,7 @@ Automatically controls a radiator fan based on temperature with hysteresis and o
 ## Configuration
 ### Required:
 - **Temperature Sensor**  
-- **Fan Switch**  
+- **Fan Switch**: switch, smart plug or `fan` entity — select as many as you like  
 
 ### Optional:
 - **Temperature ON (°C)** – direct or via helper  
@@ -58,6 +58,19 @@ https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator-fan-con
 4. Save & enable  
 
 ## Changelog
+
+### 1.2.0
+
+- **Several devices can be selected**, and `fan` entities work alongside
+  switches. Requested in the forum thread, where someone driving two vents had
+  to patch the blueprint by hand to do it
+- Switching now goes through `homeassistant.turn_on` / `turn_off` rather than
+  the `switch.` versions, which do not reach a `fan` entity
+- The "is it already in that state" checks use `match: any`. Home Assistant
+  otherwise requires *every* selected entity to match, so two fans in different
+  states would have left both alone
+- Existing automations are unaffected; a single entity stored as a plain string
+  still works
 
 ### 1.1.4
 
