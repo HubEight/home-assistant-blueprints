@@ -57,12 +57,13 @@
     border-radius: .5rem; padding: .75rem; font-size: .95rem;
     word-break: break-all; user-select: all;
   }
-  label[for="alarm-name"] { display: block; font-size: .8rem; color: #9aa0a6;
-                            text-transform: uppercase; letter-spacing: .05em;
-                            margin-bottom: .35rem; }
-  #alarm-name {
+  .setup-field label { display: block; font-size: .8rem; color: #9aa0a6;
+                       text-transform: uppercase; letter-spacing: .05em;
+                       margin-bottom: .35rem; }
+  .setup-field { margin-bottom: 1.25rem; }
+  #alarm-name, #alarm-lang {
     display: block; width: 100%; box-sizing: border-box;
-    font: inherit; padding: .75rem; margin-bottom: 1.25rem;
+    font: inherit; padding: .75rem;
     background: #12151c; color: #e8eaed;
     border: 1px solid #2c3240; border-radius: .5rem;
   }
@@ -87,8 +88,14 @@
     person the link below. Anyone holding that link can arm and disarm, so share
     it the way you would share a house key.
   </p>
-  <label for="alarm-name" data-i18n="nameLabel">Name of this alarm (optional)</label>
-  <input id="alarm-name" type="text" autocomplete="off">
+  <div class="setup-field">
+    <label for="alarm-name" data-i18n="nameLabel">Name of this alarm (optional)</label>
+    <input id="alarm-name" type="text" autocomplete="off">
+  </div>
+  <div class="setup-field">
+    <label for="alarm-lang" data-i18n="langLabel">Language (optional)</label>
+    <select id="alarm-lang"></select>
+  </div>
 
   <button id="generate" data-i18n="generate">Generate IDs</button>
 
@@ -159,6 +166,9 @@ var STRINGS = {
     labelLink: 'Link for this person',
     nameLabel: 'Name of this alarm (optional)',
     namePlaceholder: 'Alarm',
+    langLabel: 'Language (optional)',
+    langAuto: 'Follow the browser',
+    langName: 'English',
     copy: 'Copy',
     copyArmLabel: 'Copy the arm webhook ID',
     copyDisarmLabel: 'Copy the disarm webhook ID',
@@ -184,6 +194,9 @@ var STRINGS = {
     labelLink: 'Link für diese Person',
     nameLabel: 'Name dieses Alarms (optional)',
     namePlaceholder: 'Alarm',
+    langLabel: 'Sprache (optional)',
+    langAuto: 'Wie der Browser',
+    langName: 'Deutsch',
     copy: 'Kopieren',
     copyArmLabel: 'Webhook-ID zum Scharfschalten kopieren',
     copyDisarmLabel: 'Webhook-ID zum Unscharfschalten kopieren',
@@ -193,13 +206,27 @@ var STRINGS = {
   }
 };
 
-var langs = navigator.languages || [navigator.language || 'en'];
-var lang = 'en';
-for (var l = 0; l < langs.length; l++) {
-  var code = String(langs[l]).slice(0, 2).toLowerCase();
-  if (STRINGS[code]) { lang = code; break; }
-}
+// Fragment: <arm-id>,<disarm-id>[,<name>][,<lang>] - both trailing values are
+// optional, and the name may be left empty to give only a language: ",,de".
+// The name is percent-encoded, so a comma inside it cannot split the fragment.
+var ids = location.hash.slice(1).split(',');
+var hasIds = ids.length >= 2 && !!ids[0] && !!ids[1];
+
+var lang = pickLanguage(hasIds ? decode(ids[3]) : '');
 var T = STRINGS[lang];
+
+// A language named in the link wins over the browser; the browser list is
+// walked in order, so a second preference still counts.
+function pickLanguage(forced) {
+  var code = String(forced || '').slice(0, 2).toLowerCase();
+  if (STRINGS[code]) return code;
+  var langs = navigator.languages || [navigator.language || 'en'];
+  for (var i = 0; i < langs.length; i++) {
+    code = String(langs[i]).slice(0, 2).toLowerCase();
+    if (STRINGS[code]) return code;
+  }
+  return 'en';
+}
 document.documentElement.lang = lang;
 
 each('[data-i18n]', function (el, key) { el.textContent = T[key]; }, 'data-i18n');
@@ -225,11 +252,7 @@ function decode(value) {
 
 // --- Mode -------------------------------------------------------------------
 
-// Fragment: <arm-id>,<disarm-id>[,<name>] - the name is percent-encoded, so a
-// comma inside it cannot split the fragment apart.
-var ids = location.hash.slice(1).split(',');
-
-if (ids.length >= 2 && ids[0] && ids[1]) {
+if (hasIds) {
   setupPanel();
 } else {
   setupWizard();
@@ -295,7 +318,20 @@ function setupWizard() {
   }
 
   var nameInput = document.getElementById('alarm-name');
+  var langSelect = document.getElementById('alarm-lang');
   nameInput.placeholder = T.namePlaceholder;
+
+  // Built from STRINGS, so adding a translation block adds it to the list here
+  // without touching anything else.
+  addOption('', T.langAuto);
+  for (var code in STRINGS) addOption(code, STRINGS[code].langName || code);
+
+  function addOption(value, label) {
+    var opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    langSelect.appendChild(opt);
+  }
 
   document.getElementById('generate').onclick = function () {
     var arm = newId();
@@ -303,8 +339,11 @@ function setupWizard() {
     var name = nameInput.value.trim();
     armEl.textContent = arm;
     disarmEl.textContent = disarm;
-    linkEl.textContent = location.origin + location.pathname + '#' + arm + ',' + disarm +
-      (name ? ',' + encodeURIComponent(name) : '');
+    // A language without a name needs the name slot kept empty: ",,de".
+    var chosen = langSelect.value;
+    var extra = name || chosen ? ',' + encodeURIComponent(name) : '';
+    if (chosen) extra += ',' + chosen;
+    linkEl.textContent = location.origin + location.pathname + '#' + arm + ',' + disarm + extra;
     result.hidden = false;
     copyBtn.textContent = T.copyLink;
   };

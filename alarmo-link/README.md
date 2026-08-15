@@ -2,7 +2,7 @@
 
 Arm and disarm [Alarmo](https://github.com/nielsfaber/alarmo) from a private
 link — no Home Assistant account, no app, no login.  
-**Version 1.3.0 – the link can carry the name of the alarm**
+**Version 1.4.0 – the link can carry the name and the language**
 
 For the people who live in your home but do not use Home Assistant, and for
 cleaners or house sitters who should be able to set the alarm and nothing else.
@@ -50,8 +50,8 @@ Neither works alone.
    code belongs to, so a shared code names the wrong one.
 
 2. Open `https://<your-ha-url>/local/alarmo-link.html` — with no `#` in the
-   address. That is the setup screen. Name the alarm if you like, then press
-   **Generate IDs**.
+   address. That is the setup screen. Name the alarm and pick a language if you
+   like, then press **Generate IDs**.
 
    ```
    ┌──────────────────────────────────────┐
@@ -59,6 +59,9 @@ Neither works alone.
    │                                      │
    │ NAME OF THIS ALARM (OPTIONAL)        │
    │ [ Flat                             ] │
+   │                                      │
+   │ LANGUAGE (OPTIONAL)                  │
+   │ [ Follow the browser              v] │
    │                                      │
    │        [  Generate IDs  ]            │
    │                                      │
@@ -133,16 +136,31 @@ as required in the form itself, so the blueprint says so in each label.
 The page follows the browser's language setting. English and German ship with
 it; anything else gets English.
 
+Pick a language on the setup screen to override that — useful when you hand the
+link to someone whose phone is set to a third language. It lands in the link and
+travels with it.
+
 To add a language, copy the `en` block in `alarmo-link.html` and translate the
-values — the keys are what the markup refers to:
+values. The keys are what the markup refers to, and `langName` is what the
+setup dropdown shows:
 
 ```js
 var STRINGS = {
   en: { … },
   de: { … },
-  nl: { arm: '🔒 Inschakelen', … }
+  nl: { langName: 'Nederlands', arm: '🔒 Inschakelen', … }
 };
 ```
+
+The fragment is `#<arm>,<disarm>[,<name>][,<language>]`. Both extras are
+optional and independent — to set only a language, leave the name slot empty:
+
+| Link ends with | Heading | Language |
+|---|---|---|
+| `…,<disarm>` | `Alarm` | browser |
+| `…,<disarm>,Flat` | `Flat` | browser |
+| `…,<disarm>,,de` | `Alarm` | German |
+| `…,<disarm>,Flat,de` | `Flat` | German |
 
 Two things stay untranslated on purpose: the heading of the button page, which
 is a name you supply, and the blueprint itself, since Home Assistant has no way
@@ -168,6 +186,13 @@ from the internet, or a reverse proxy is blocking `/api/webhook/`.
 truncated. Messengers sometimes cut long URLs; send it as plain text.
 
 ## Changelog
+
+### 1.4.0
+
+- The setup screen also offers a **Language**, which becomes a fourth value in
+  the link and overrides the browser. Both extras are independent: either, both
+  or neither. The dropdown is built from the translation table, so adding a
+  block adds it to the list
 
 ### 1.3.0
 
