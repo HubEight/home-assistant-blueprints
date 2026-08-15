@@ -2,7 +2,7 @@
 
 Arm and disarm [Alarmo](https://github.com/nielsfaber/alarmo) from a private
 link — no Home Assistant account, no app, no login.  
-**Version 1.1.1 – a lock icon in front of the name**
+**Version 1.2.0 – German translation, and a Telegram notification fix**
 
 For the people who live in your home but do not use Home Assistant, and for
 cleaners or house sitters who should be able to set the alarm and nothing else.
@@ -124,6 +124,26 @@ Leave a required field empty and Home Assistant refuses to save with
 `Message malformed: Missing input …`. Home Assistant has no way to mark fields
 as required in the form itself, so the blueprint says so in each label.
 
+## Language
+
+The page follows the browser's language setting. English and German ship with
+it; anything else gets English.
+
+To add a language, copy the `en` block in `alarmo-link.html` and translate the
+values — the keys are what the markup refers to:
+
+```js
+var STRINGS = {
+  en: { … },
+  de: { … },
+  nl: { arm: '🔒 Inschakelen', … }
+};
+```
+
+Two things stay untranslated on purpose: the heading of the button page, which
+is the alarm's name and the line most people edit anyway, and the blueprint
+itself, since Home Assistant has no way for a blueprint to ship translations.
+
 ## Troubleshooting
 
 **"Did not work – please call"** — the automation is disabled or deleted, or the
@@ -132,6 +152,11 @@ webhook ID does not match. Check that the automation exists and is on.
 **Nothing happens, no error** — the Alarmo code is wrong, or that user is not
 allowed to arm or disarm. Alarmo logs the rejection in its own history.
 
+**The alarm switches but no notification arrives** — check the log for
+`Can't parse entities`. A Telegram bot set to a Markdown parser chokes on
+formatting characters in the message; this blueprint avoids them, but the name
+you enter is passed through as you type it, so avoid `_`, `*` and `` ` `` in it.
+
 **The link works at home but not outside** — Home Assistant is not reachable
 from the internet, or a reverse proxy is blocking `/api/webhook/`.
 
@@ -139,6 +164,17 @@ from the internet, or a reverse proxy is blocking `/api/webhook/`.
 truncated. Messengers sometimes cut long URLs; send it as plain text.
 
 ## Changelog
+
+### 1.2.0
+
+- **Fixed: no notification when arming, if the target was a Telegram bot.**
+  Alarm states contain an underscore (`armed_home`), Telegram's default
+  Markdown parser read it as an unclosed italic marker and rejected the whole
+  message with `Can't parse entities`. `notify.send_message` passes only
+  message and title, so the parser cannot be switched off from a blueprint —
+  the message now strips underscores instead: `armed home`
+- The page follows the browser language. English and German are included;
+  anything else falls back to English
 
 ### 1.1.1
 

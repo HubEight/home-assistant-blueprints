@@ -32,7 +32,7 @@ blueprint:
     moment you sent someone the link.
 
 
-    Version 1.1.1
+    Version 1.2.0
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/alarmo-link/alarmo_link.yaml
@@ -172,5 +172,10 @@ actions:
         target:
           entity_id: !input notify_target
         data:
+          # Underscores are stripped on purpose: notify.send_message passes only
+          # message and title, so a Telegram bot left on its default Markdown
+          # parser reads the one in "armed_home" as an unclosed italic marker
+          # and rejects the whole message.
           message: >-
-            Alarmo Link ({{ person }}): {{ states(alarm_entity) }}
+            Alarmo Link ({{ person }}):
+            {{ states(alarm_entity) | replace('_', ' ') }}
