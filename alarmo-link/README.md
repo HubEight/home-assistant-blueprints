@@ -2,7 +2,7 @@
 
 Arm and disarm [Alarmo](https://github.com/nielsfaber/alarmo) from a private
 link — no Home Assistant account, no app, no login.  
-**Version 1.1.1 – the notification field can no longer be collapsed away**
+**Version 1.1.2 – a lock icon in front of the name**
 
 For the people who live in your home but do not use Home Assistant, and for
 cleaners or house sitters who should be able to set the alarm and nothing else.
@@ -145,6 +145,11 @@ from the internet, or a reverse proxy is blocking `/api/webhook/`.
 truncated. Messengers sometimes cut long URLs; send it as plain text.
 
 ## Changelog
+
+### 1.1.2
+
+- The blueprint is now called `🔒 Alarmo Link`. Blueprints have no icon field —
+  an emoji at the start of the name is how it is done
 
 ### 1.1.1
 
