@@ -1,4 +1,7 @@
 <!doctype html>
+<!-- Alarmo Link 1.4.0 - github.com/HubEight/home-assistant-blueprints
+     This page and the blueprint are a pair and share a version. Copied by
+     hand, so nothing updates it for you - check here before reporting a bug. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -67,6 +70,7 @@
     background: #12151c; color: #e8eaed;
     border: 1px solid #2c3240; border-radius: .5rem;
   }
+  .version { color: #6b7280; font-size: .8rem; text-align: center; margin: 2rem 0 0; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -132,6 +136,10 @@
       <button id="copy" data-i18n="copyLink">Copy link</button>
     </div>
   </div>
+
+  <!-- Setup only. The button page is used in a hurry, in the dark, by someone
+       who did not install this - a version number has no business there. -->
+  <p class="version">Alarmo Link 1.4.0</p>
 </main>
 
 <script>

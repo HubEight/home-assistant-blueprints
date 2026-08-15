@@ -193,6 +193,9 @@ truncated. Messengers sometimes cut long URLs; send it as plain text.
   the link and overrides the browser. Both extras are independent: either, both
   or neither. The dropdown is built from the translation table, so adding a
   block adds it to the list
+- The page states its version, in a comment at the top of the file and at the
+  foot of the setup screen. It is copied by hand and nothing updates it, so it
+  can silently fall behind the blueprint it is paired with
 
 ### 1.3.0
 

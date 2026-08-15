@@ -1,0 +1,49 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Every blueprint states its version in more than one file, and nothing in
+      # Home Assistant enforces that they agree.
+      - name: Versions agree across each blueprint's files
+        run: node tools/check-version.js
+
+      - name: alarmo-link page logic
+        run: node tools/test-alarmo-link.js
+
+      # A blueprint that does not parse is worse than a missing one: Home
+      # Assistant reports it as broken only once someone tries to import it.
+      - name: Blueprints are valid YAML
+        run: |
+          python3 - <<'EOF'
+          import glob, sys, yaml
+
+          # !input is Home Assistant's own tag; treat it as opaque so the
+          # document still parses here.
+          yaml.SafeLoader.add_constructor(
+              '!input', lambda loader, node: loader.construct_scalar(node))
+
+          failed = False
+          for path in sorted(glob.glob('*/*.yaml')):
+              try:
+                  doc = yaml.safe_load(open(path))
+                  assert 'blueprint' in doc, 'no blueprint block'
+                  assert doc['blueprint'].get('name'), 'no name'
+                  print(f'ok    {path}  {doc["blueprint"]["name"]}')
+              except Exception as err:
+                  print(f'FAIL  {path}  {err}')
+                  failed = True
+          sys.exit(1 if failed else 0)
+          EOF
