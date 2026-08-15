@@ -115,7 +115,6 @@ blueprint:
     notification_section:
       name: Notification
       icon: mdi:bell
-      collapsed: true
       description: >-
         Optional, but worth setting up. Two seconds after the command, reports
         what the alarm panel actually did - the page can only confirm that the
