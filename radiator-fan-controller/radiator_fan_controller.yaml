@@ -1,6 +1,6 @@
 blueprint:
   name: Radiator Fan Controller
-  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.1.4"
+  description: "Automatically controls a fan based on radiator temperature with hysteresis and optional window contact monitoring. Version 1.2.0"
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator-fan-controller/radiator_fan_controller.yaml
@@ -17,11 +17,16 @@ blueprint:
 
     fan_switch:
       name: Fan Switch
-      description: Switch or outlet controlling the radiator fan
+      description: >-
+        Switch, outlet or fan driving the radiator. Several may be selected;
+        they are switched together.
       selector:
         entity:
+          multiple: true
           filter:
-            - domain: switch
+            - domain:
+                - switch
+                - fan
 
     temp_on:
       name: Temperature ON (°C)
@@ -180,8 +185,9 @@ action:
           - condition: state
             entity_id: !input fan_switch
             state: "on"
+            match: any
         sequence:
-          - service: switch.turn_off
+          - service: homeassistant.turn_off
             target:
               entity_id: !input fan_switch
 
@@ -209,8 +215,9 @@ action:
               - condition: state
                 entity_id: !input fan_switch
                 state: "off"
+                match: any
             then:
-              - service: switch.turn_on
+              - service: homeassistant.turn_on
                 target:
                   entity_id: !input fan_switch
 
@@ -222,8 +229,9 @@ action:
               - condition: state
                 entity_id: !input fan_switch
                 state: "on"
+                match: any
             then:
-              - service: switch.turn_off
+              - service: homeassistant.turn_off
                 target:
                   entity_id: !input fan_switch
 
@@ -238,8 +246,9 @@ action:
               - condition: state
                 entity_id: !input fan_switch
                 state: "off"
+                match: any
             then:
-              - service: switch.turn_on
+              - service: homeassistant.turn_on
                 target:
                   entity_id: !input fan_switch
 
@@ -251,8 +260,9 @@ action:
               - condition: state
                 entity_id: !input fan_switch
                 state: "on"
+                match: any
             then:
-              - service: switch.turn_off
+              - service: homeassistant.turn_off
                 target:
                   entity_id: !input fan_switch
 
@@ -273,8 +283,9 @@ action:
               - condition: state
                 entity_id: !input fan_switch
                 state: "off"
+                match: any
             then:
-              - service: switch.turn_on
+              - service: homeassistant.turn_on
                 target:
                   entity_id: !input fan_switch
 
@@ -292,8 +303,9 @@ action:
               - condition: state
                 entity_id: !input fan_switch
                 state: "on"
+                match: any
             then:
-              - service: switch.turn_off
+              - service: homeassistant.turn_off
                 target:
                   entity_id: !input fan_switch
 
