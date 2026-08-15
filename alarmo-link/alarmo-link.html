@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Alarm">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1f2430">
+<title>Alarm</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 1.5rem;
+    font: 1rem/1.4 system-ui, -apple-system, sans-serif;
+    background: #1f2430; color: #e8eaed;
+    display: flex; flex-direction: column; gap: 1.5rem;
+    min-height: 100vh; box-sizing: border-box; justify-content: center;
+  }
+  h1 { font-size: 1.25rem; font-weight: 600; text-align: center; margin: 0; }
+  button {
+    font: inherit; font-weight: 600;
+    width: 100%; border: none; border-radius: 1rem;
+    color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  button:disabled { opacity: .45; }
+  #panel { display: flex; flex-direction: column; gap: 1.5rem; }
+  #arm, #disarm { font-size: 1.6rem; padding: 2rem 1rem; }
+  #arm    { background: #b3261e; }
+  #disarm { background: #1e6b3a; }
+  #status {
+    font-size: 1.25rem; text-align: center; min-height: 3rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .err { color: #ff8a80; }
+
+  /* Setup view */
+  #setup { max-width: 34rem; margin: 0 auto; width: 100%; }
+  #setup h1 { margin-bottom: 1rem; }
+  #generate, #copy { font-size: 1.1rem; padding: 1rem; background: #3b5bdb; }
+  .hint { color: #9aa0a6; font-size: .9rem; margin: 0 0 1rem; }
+  .field { margin: 1.25rem 0 0; }
+  .field label { display: block; font-size: .8rem; color: #9aa0a6;
+                 text-transform: uppercase; letter-spacing: .05em; margin-bottom: .35rem; }
+  .field code {
+    display: block; background: #12151c; border: 1px solid #2c3240;
+    border-radius: .5rem; padding: .75rem; font-size: .95rem;
+    word-break: break-all; user-select: all;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<main id="panel" hidden>
+  <!-- Rename this to whatever the alarm is called. -->
+  <h1>Alarm</h1>
+  <button id="arm">&#128274; Arm</button>
+  <button id="disarm">&#128275; Disarm</button>
+  <p id="status"></p>
+</main>
+
+<main id="setup" hidden>
+  <h1>Alarmo Link &ndash; Setup</h1>
+  <p class="hint">
+    Generate a pair of webhook IDs, paste them into the blueprint, then send the
+    person the link below. Anyone holding that link can arm and disarm, so share
+    it the way you would share a house key.
+  </p>
+  <button id="generate">Generate IDs</button>
+
+  <div id="result" hidden>
+    <div class="field">
+      <label>Webhook ID &ndash; arm</label>
+      <code id="arm-id"></code>
+    </div>
+    <div class="field">
+      <label>Webhook ID &ndash; disarm</label>
+      <code id="disarm-id"></code>
+    </div>
+    <div class="field">
+      <label>Link for this person</label>
+      <code id="link"></code>
+    </div>
+    <div class="field">
+      <button id="copy">Copy link</button>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+// The two webhook IDs come from the link fragment (#arm-id,disarm-id) and are
+// deliberately not stored in this file - without the link it is worthless.
+// The fragment is never sent to the server, so the IDs stay out of access logs.
+//
+// The panel reports that the command was accepted, not the real state of the
+// alarm. Real state would need an API token in the page, which is full access
+// to Home Assistant. Use the blueprint's notification instead.
+
+var ids = location.hash.slice(1).split(',');
+
+if (ids.length === 2 && ids[0] && ids[1]) {
+  setupPanel();
+} else {
+  setupWizard();
+}
+
+// --- Panel: two buttons, one POST each -------------------------------------
+
+function setupPanel() {
+  var panel = document.getElementById('panel');
+  var out = document.getElementById('status');
+  var buttons = [document.getElementById('arm'), document.getElementById('disarm')];
+  panel.hidden = false;
+
+  function send(i, text) {
+    buttons.forEach(function (b) { b.disabled = true; });
+    out.className = '';
+    out.textContent = 'One moment ...';
+
+    fetch('/api/webhook/' + ids[i], { method: 'POST' })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        out.textContent = text;
+      })
+      .catch(function () {
+        out.className = 'err';
+        out.textContent = 'Did not work - please call';
+      })
+      .finally(function () {
+        buttons.forEach(function (b) { b.disabled = false; });
+      });
+  }
+
+  buttons[0].onclick = function () { send(0, 'Arm command sent'); };
+  buttons[1].onclick = function () { send(1, 'Disarm command sent'); };
+}
+
+// --- Wizard: generate a pair of IDs and show the finished link --------------
+
+function setupWizard() {
+  var setup = document.getElementById('setup');
+  var result = document.getElementById('result');
+  var armEl = document.getElementById('arm-id');
+  var disarmEl = document.getElementById('disarm-id');
+  var linkEl = document.getElementById('link');
+  var copyBtn = document.getElementById('copy');
+  setup.hidden = false;
+
+  // 64-character alphabet and a byte mask of 63: 256 is a multiple of 64, so
+  // every character is equally likely. 32 characters = 192 bits.
+  function newId() {
+    var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    var bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    var id = '';
+    for (var i = 0; i < bytes.length; i++) id += alphabet[bytes[i] & 63];
+    return id;
+  }
+
+  document.getElementById('generate').onclick = function () {
+    var arm = newId();
+    var disarm = newId();
+    armEl.textContent = arm;
+    disarmEl.textContent = disarm;
+    linkEl.textContent = location.origin + location.pathname + '#' + arm + ',' + disarm;
+    result.hidden = false;
+    copyBtn.textContent = 'Copy link';
+  };
+
+  copyBtn.onclick = function () {
+    var done = function () { copyBtn.textContent = 'Copied'; };
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(linkEl.textContent).then(done, select);
+    } else {
+      select();
+    }
+  };
+
+  // Fallback where the clipboard API is unavailable (plain HTTP, old browsers):
+  // select the link so it can be copied by hand.
+  function select() {
+    var range = document.createRange();
+    range.selectNodeContents(linkEl);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    copyBtn.textContent = 'Press Ctrl+C / long-press to copy';
+  }
+}
+</script>
+</body>
+</html>
