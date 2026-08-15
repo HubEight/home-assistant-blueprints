@@ -2,7 +2,7 @@
 
 Arm and disarm [Alarmo](https://github.com/nielsfaber/alarmo) from a private
 link — no Home Assistant account, no app, no login.  
-**Version 1.0.0 – first release**
+**Version 1.1.0 – copy icons for the webhook IDs**
 
 For the people who live in your home but do not use Home Assistant, and for
 cleaners or house sitters who should be able to set the alarm and nothing else.
@@ -142,6 +142,21 @@ from the internet, or a reverse proxy is blocking `/api/webhook/`.
 
 **Setup screen instead of the buttons** — the `#` part of the link is missing or
 truncated. Messengers sometimes cut long URLs; send it as plain text.
+
+## Changelog
+
+### 1.1.0
+
+- Each webhook ID on the setup screen has its own copy icon — previously only
+  the finished link could be copied, the IDs had to be selected by hand
+- The fallback for browsers without the clipboard API (plain HTTP, `file://`)
+  now covers all three copy actions instead of only the link
+- The Notification section is shown expanded like the other three. It was the
+  only collapsed one, which hid the option most people should set
+
+### 1.0.0
+
+- First release
 
 ## Support
 
