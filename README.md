@@ -19,6 +19,17 @@ node tools/test-alarmo-link.js    # logic inside alarmo-link.html
 
 Plain Node, no dependencies, no `package.json` — clone and run.
 
+One more needs Home Assistant itself, so run it wherever Home Assistant is
+importable rather than on a bare machine:
+
+```bash
+python3 tools/test-radiator-fan-controller.py
+```
+
+It runs the blueprint's action script through Home Assistant's script engine
+and checks what it switches. That is how the 1.1.4 bug was found — reading the
+YAML did not show it.
+
 ## Support
 
 Bug? Idea? → [Open an issue](https://github.com/HubEight/home-assistant-blueprints/issues)
