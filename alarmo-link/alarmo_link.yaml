@@ -1,5 +1,5 @@
 blueprint:
-  name: Alarmo Link
+  name: "🔒 Alarmo Link"
   description: >-
     Arm and disarm Alarmo from a private link - no Home Assistant account, no
     app. For household members, cleaners or house sitters who should be able to
@@ -38,7 +38,7 @@ blueprint:
     moment you sent someone the link.
 
 
-    Version 1.1.1
+    Version 1.1.2
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/alarmo-link/alarmo_link.yaml
