@@ -1,7 +1,7 @@
 # Radiator Fan Controller
 
 Automatically controls a radiator fan based on temperature with hysteresis and optional window contact monitoring.  
-**Version 1.1.3 – enhanced hysteresis logic with three configurable cases**
+**Version 1.1.4 – fixes a bug that kept the fan from ever switching on**
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FHubEight%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Fradiator-fan-controller%2Fradiator_fan_controller.yaml)
 
@@ -56,6 +56,23 @@ https://github.com/HubEight/home-assistant-blueprints/blob/main/radiator-fan-con
 2. Select **Radiator Fan Controller**  
 3. Fill in entities and thresholds  
 4. Save & enable  
+
+## Changelog
+
+### 1.1.4
+
+- **Fixed: the fan never switched on unless window sensors were configured.**
+  With none selected, the `any_window_open` variable produced the *string*
+  `'false'` rather than a boolean. A non-empty string is truthy, so
+  `not any_window_open` was always false — and that condition guards every
+  switch-on path, in all three hysteresis modes. Switching off was unaffected,
+  because those branches do not look at the windows. Window sensors are
+  optional and empty by default, so this hit the default configuration.
+  Reported in [#1](https://github.com/HubEight/home-assistant-blueprints/issues/1)
+
+### 1.1.3
+
+- Enhanced hysteresis logic with three configurable cases
 
 ## Support
 Bug? Idea? → [Open an issue on GitHub](https://github.com/HubEight/home-assistant-blueprints/issues)
