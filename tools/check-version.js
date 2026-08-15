@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// Every blueprint carries its version in more than one file, and Home Assistant
-// has no version field for blueprints - it lives in prose. So nothing stops the
-// files from drifting apart, and a version number that lies is worse than none:
-// someone reports a bug against a release that never existed in that shape.
+// A blueprint and its page are a pair and share a version, but they are
+// separate files and Home Assistant has no version field - it lives in prose.
+// Nothing stops them drifting apart, and a version number that lies is worse
+// than none: someone reports a bug against a release that never existed in
+// that shape.
 //
-// This walks every blueprint folder, pulls the version out of each file that
-// states one, and fails if they disagree.
+// This walks every blueprint folder, collects every version each file states,
+// and fails if they disagree - within a file as well as across files.
 //
 //   node tools/check-version.js
 
@@ -15,21 +16,24 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const SEMVER = /(\d+\.\d+\.\d+)/;
 
-// Where a version may appear. A file that states none is not an error - only a
-// disagreement is. Adding a file type here is enough to cover it.
+// Where a version may be declared. Deliberately narrow: a blanket search for
+// three numbers would also catch the changelog's own history (### 1.3.0) and
+// the blueprint's min_version, neither of which tracks the current release.
+// Every match in a file counts, not just the first - an earlier version of this
+// script stopped at the first one and happily passed a page whose footer had
+// fallen two releases behind.
 const PATTERNS = [
-  { file: /\.yaml$/, find: /^\s*(?:description:.*?)?Version\s+(\d+\.\d+\.\d+)/mi },
-  { file: /\.md$/, find: /^\*\*Version\s+(\d+\.\d+\.\d+)/mi },
-  { file: /\.html$/, find: /^<!--.*?(\d+\.\d+\.\d+)/mi },
+  { file: /\.yaml$/, find: /(?:^|\s)Version\s+(\d+\.\d+\.\d+)/gim },
+  { file: /\.md$/, find: /^\*\*Version\s+(\d+\.\d+\.\d+)/gim },
+  { file: /\.html$/, find: /^\s*var VERSION\s*=\s*'(\d+\.\d+\.\d+)'/gim },
 ];
 
-function versionIn(file) {
+function versionsIn(file) {
   const rule = PATTERNS.find((p) => p.file.test(file));
-  if (!rule) return null;
-  const match = fs.readFileSync(file, 'utf8').match(rule.find);
-  return match ? match[1] : null;
+  if (!rule) return [];
+  const text = fs.readFileSync(file, 'utf8');
+  return [...text.matchAll(rule.find)].map((m) => m[1]);
 }
 
 function blueprintFolders() {
@@ -43,9 +47,12 @@ let failed = false;
 
 for (const folder of blueprintFolders()) {
   const dir = path.join(ROOT, folder);
-  const found = fs.readdirSync(dir)
-    .map((name) => ({ name, version: versionIn(path.join(dir, name)) }))
-    .filter((f) => f.version);
+  const found = [];
+  for (const name of fs.readdirSync(dir).sort()) {
+    for (const version of versionsIn(path.join(dir, name))) {
+      found.push({ name, version });
+    }
+  }
 
   if (!found.length) {
     console.log(`${folder}\n  no version stated - skipped\n`);
@@ -57,8 +64,8 @@ for (const folder of blueprintFolders()) {
   if (!agree) failed = true;
 
   // Point at the odd one out, not at whichever file happened to be read first:
-  // the file most likely to be wrong is the one the majority disagrees with.
-  // A straight tie has no majority, so nothing gets singled out.
+  // the one most likely to be wrong is what the majority disagrees with. A
+  // straight tie has no majority, so nothing gets singled out.
   const count = (v) => found.filter((f) => f.version === v).length;
   const ranked = [...versions].sort((a, b) => count(b) - count(a));
   const majority = ranked.length > 1 && count(ranked[0]) > count(ranked[1]) ? ranked[0] : null;
@@ -67,12 +74,6 @@ for (const folder of blueprintFolders()) {
   for (const f of found) {
     const odd = !agree && (majority ? f.version !== majority : true);
     console.log(`  ${f.name.padEnd(30)} ${f.version}${odd ? '   <- differs' : ''}`);
-  }
-
-  // A single file stating the version cannot disagree with itself, but it also
-  // means a sibling lost its version line - worth saying out loud.
-  if (agree && found.length === 1) {
-    console.log('  only one file states a version');
   }
   console.log('');
 }

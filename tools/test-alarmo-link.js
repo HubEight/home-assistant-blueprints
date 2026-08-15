@@ -31,7 +31,8 @@ const SRC = block[1];
 // Elements the markup gives an id
 const IDS = ['panel', 'status', 'arm', 'disarm', 'setup', 'result',
              'arm-id', 'disarm-id', 'link', 'copy', 'generate',
-             'copy-arm', 'copy-disarm', 'panel-title', 'alarm-name', 'alarm-lang'];
+             'copy-arm', 'copy-disarm', 'panel-title', 'alarm-name', 'alarm-lang',
+             'version'];
 // Translated elements that have no id
 const EXTRA = ['h1-setup', 'hint', 'label-arm', 'label-disarm', 'label-link'];
 
@@ -282,6 +283,23 @@ console.log('language selection: ok  (en, de, fallback, second preference)');
     assert.strictEqual(back.els.panel.hidden, false, 'buttons present');
   }
   console.log('four combinations: ok  (round trip generate -> open)');
+}
+
+// --- The file states its version once, and shows it on the setup screen -----
+{
+  const stated = SRC.match(/^\s*var VERSION\s*=\s*'(\d+\.\d+\.\d+)'/m);
+  assert.ok(stated, 'no VERSION constant in the page');
+  assert.strictEqual(SRC.match(/var VERSION\s*=/g).length, 1,
+    'VERSION must be stated once - a second one can disagree with the first');
+
+  const setup = run('');
+  assert.strictEqual(setup.els.version.textContent, 'Alarmo Link ' + stated[1],
+    'setup screen shows the version');
+
+  // The button page is used in a hurry by someone who did not install this.
+  const panel = run('#A,B');
+  assert.strictEqual(panel.els.version.textContent, '', 'button page shows no version');
+  console.log(`version: ok  (stated once as ${stated[1]}, setup only)`);
 }
 
 // --- Status messages reach the surface, in the chosen language ---------
