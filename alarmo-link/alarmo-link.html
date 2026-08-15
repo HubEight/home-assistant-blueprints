@@ -57,15 +57,24 @@
     border-radius: .5rem; padding: .75rem; font-size: .95rem;
     word-break: break-all; user-select: all;
   }
+  label[for="alarm-name"] { display: block; font-size: .8rem; color: #9aa0a6;
+                            text-transform: uppercase; letter-spacing: .05em;
+                            margin-bottom: .35rem; }
+  #alarm-name {
+    display: block; width: 100%; box-sizing: border-box;
+    font: inherit; padding: .75rem; margin-bottom: 1.25rem;
+    background: #12151c; color: #e8eaed;
+    border: 1px solid #2c3240; border-radius: .5rem;
+  }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 
 <main id="panel" hidden>
-  <!-- Rename this to whatever the alarm is called. Not translated: it is a
-       name, and it is the one line most people will want to change. -->
-  <h1>Alarm</h1>
+  <!-- Replaced by the name from the link, when it carries one. Not translated:
+       it is a name, not a label. -->
+  <h1 id="panel-title">Alarm</h1>
   <button id="arm" data-i18n="arm">&#128274; Arm</button>
   <button id="disarm" data-i18n="disarm">&#128275; Disarm</button>
   <p id="status"></p>
@@ -78,6 +87,9 @@
     person the link below. Anyone holding that link can arm and disarm, so share
     it the way you would share a house key.
   </p>
+  <label for="alarm-name" data-i18n="nameLabel">Name of this alarm (optional)</label>
+  <input id="alarm-name" type="text" autocomplete="off">
+
   <button id="generate" data-i18n="generate">Generate IDs</button>
 
   <div id="result" hidden>
@@ -145,6 +157,8 @@ var STRINGS = {
     labelArm: 'Webhook ID – arm',
     labelDisarm: 'Webhook ID – disarm',
     labelLink: 'Link for this person',
+    nameLabel: 'Name of this alarm (optional)',
+    namePlaceholder: 'Alarm',
     copy: 'Copy',
     copyArmLabel: 'Copy the arm webhook ID',
     copyDisarmLabel: 'Copy the disarm webhook ID',
@@ -168,6 +182,8 @@ var STRINGS = {
     labelArm: 'Webhook-ID – scharf',
     labelDisarm: 'Webhook-ID – unscharf',
     labelLink: 'Link für diese Person',
+    nameLabel: 'Name dieses Alarms (optional)',
+    namePlaceholder: 'Alarm',
     copy: 'Kopieren',
     copyArmLabel: 'Webhook-ID zum Scharfschalten kopieren',
     copyDisarmLabel: 'Webhook-ID zum Unscharfschalten kopieren',
@@ -200,11 +216,20 @@ function each(selector, fn, attr) {
   }
 }
 
+// A malformed percent-escape would throw and take the whole page with it, so a
+// broken name must not stop the buttons from working.
+function decode(value) {
+  if (!value) return '';
+  try { return decodeURIComponent(value); } catch (err) { return ''; }
+}
+
 // --- Mode -------------------------------------------------------------------
 
+// Fragment: <arm-id>,<disarm-id>[,<name>] - the name is percent-encoded, so a
+// comma inside it cannot split the fragment apart.
 var ids = location.hash.slice(1).split(',');
 
-if (ids.length === 2 && ids[0] && ids[1]) {
+if (ids.length >= 2 && ids[0] && ids[1]) {
   setupPanel();
 } else {
   setupWizard();
@@ -217,6 +242,12 @@ function setupPanel() {
   var out = document.getElementById('status');
   var buttons = [document.getElementById('arm'), document.getElementById('disarm')];
   panel.hidden = false;
+
+  var name = decode(ids[2]);
+  if (name) {
+    document.getElementById('panel-title').textContent = name;
+    document.title = name;
+  }
 
   function send(i, text) {
     buttons.forEach(function (b) { b.disabled = true; });
@@ -263,12 +294,17 @@ function setupWizard() {
     return id;
   }
 
+  var nameInput = document.getElementById('alarm-name');
+  nameInput.placeholder = T.namePlaceholder;
+
   document.getElementById('generate').onclick = function () {
     var arm = newId();
     var disarm = newId();
+    var name = nameInput.value.trim();
     armEl.textContent = arm;
     disarmEl.textContent = disarm;
-    linkEl.textContent = location.origin + location.pathname + '#' + arm + ',' + disarm;
+    linkEl.textContent = location.origin + location.pathname + '#' + arm + ',' + disarm +
+      (name ? ',' + encodeURIComponent(name) : '');
     result.hidden = false;
     copyBtn.textContent = T.copyLink;
   };

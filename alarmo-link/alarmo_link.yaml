@@ -12,9 +12,9 @@ blueprint:
 
 
     **Setup:** open `/local/alarmo-link.html` in a browser with no `#` in the
-    address. It generates a pair of webhook IDs and shows the finished link.
-    Paste the two IDs below, fill in the name and the Alarmo code, save, and
-    send the person the link.
+    address. Name the alarm if you like, generate a pair of webhook IDs, and it
+    shows the finished link. Paste the two IDs below, fill in the name and the
+    Alarmo code, save, and send the person the link.
 
 
     **One automation per person.** Adding someone means creating another
@@ -32,7 +32,7 @@ blueprint:
     moment you sent someone the link.
 
 
-    Version 1.2.0
+    Version 1.3.0
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/alarmo-link/alarmo_link.yaml
