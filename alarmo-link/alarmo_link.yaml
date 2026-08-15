@@ -38,7 +38,7 @@ blueprint:
     moment you sent someone the link.
 
 
-    Version 1.1.0
+    Version 1.1.1
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/alarmo-link/alarmo_link.yaml
@@ -112,22 +112,21 @@ blueprint:
                 - label: Night
                   value: night
 
-    notification_section:
-      name: Notification
-      icon: mdi:bell
+    # Deliberately not in a section: Home Assistant renders every section as an
+    # expansion panel whose header can always be clicked shut, and this is the
+    # option most people should actually set.
+    notify_target:
+      name: Notification (optional)
       description: >-
-        Optional, but worth setting up. Two seconds after the command, reports
-        what the alarm panel actually did - the page can only confirm that the
-        command arrived, not that the alarm changed state.
-      input:
-        notify_target:
-          name: Notify targets (optional)
-          default: []
-          selector:
-            entity:
-              multiple: true
-              filter:
-                domain: notify
+        Worth setting up. Two seconds after the command, reports what the alarm
+        panel actually did - the page can only confirm that the command
+        arrived, not that the alarm changed state.
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain: notify
 
 mode: queued
 max: 5

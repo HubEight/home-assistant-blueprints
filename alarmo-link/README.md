@@ -2,7 +2,7 @@
 
 Arm and disarm [Alarmo](https://github.com/nielsfaber/alarmo) from a private
 link — no Home Assistant account, no app, no login.  
-**Version 1.1.0 – copy icons for the webhook IDs**
+**Version 1.1.1 – the notification field can no longer be collapsed away**
 
 For the people who live in your home but do not use Home Assistant, and for
 cleaners or house sitters who should be able to set the alarm and nothing else.
@@ -113,7 +113,8 @@ The page never learns your codes, and it holds no credentials.
 
 ## Options
 
-The form is grouped into four sections.
+The first six inputs are grouped into three sections; the notification field
+sits below them.
 
 | Section | Input | | |
 |---|---|---|---|
@@ -123,7 +124,7 @@ The form is grouped into four sections.
 | | Webhook ID – disarm | required | Must differ from the one above |
 | **Alarm** | Alarm panel | required | Your Alarmo `alarm_control_panel` entity |
 | | Arm mode | optional | Away, Home or Night — default Away |
-| **Notification** | Notify targets | optional | Reports the real state two seconds after the command |
+| _(no section)_ | Notification | optional | Reports the real state two seconds after the command |
 
 Leave a required field empty and Home Assistant refuses to save with
 `Message malformed: Missing input …`. Home Assistant has no way to mark fields
@@ -144,6 +145,14 @@ from the internet, or a reverse proxy is blocking `/api/webhook/`.
 truncated. Messengers sometimes cut long URLs; send it as plain text.
 
 ## Changelog
+
+### 1.1.1
+
+- The notification field is no longer inside a section. Home Assistant renders
+  every section as an expansion panel whose header can always be clicked shut,
+  and `collapsed` only sets the initial state — so the one option most people
+  should set could be hidden by accident. It is now a plain field below the
+  sections
 
 ### 1.1.0
 
