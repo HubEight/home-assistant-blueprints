@@ -72,6 +72,8 @@ Neither works alone.
    └──────────────────────────────────────┘
    ```
 
+   Each ID has a small copy icon next to it, and the link has its own button.
+
 3. **Settings → Automations → Create Automation → From blueprint → Alarmo Link.**
    Fill in the name, the Alarmo code, and paste the two generated IDs. Save.
 

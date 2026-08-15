@@ -40,8 +40,18 @@
   #generate, #copy { font-size: 1.1rem; padding: 1rem; background: #3b5bdb; }
   .hint { color: #9aa0a6; font-size: .9rem; margin: 0 0 1rem; }
   .field { margin: 1.25rem 0 0; }
-  .field label { display: block; font-size: .8rem; color: #9aa0a6;
-                 text-transform: uppercase; letter-spacing: .05em; margin-bottom: .35rem; }
+  .field label { font-size: .8rem; color: #9aa0a6;
+                 text-transform: uppercase; letter-spacing: .05em; }
+  .field .row { display: flex; align-items: center; justify-content: space-between;
+                gap: .5rem; margin-bottom: .35rem; }
+  .icon {
+    width: auto; flex: none; background: none; color: #9aa0a6;
+    padding: .25rem; border-radius: .375rem; line-height: 0;
+  }
+  .icon:hover { color: #e8eaed; background: #2c3240; }
+  .icon .tick, .icon.ok .mark { display: none; }
+  .icon.ok .tick { display: block; }
+  .icon.ok { color: #6bd68a; }
   .field code {
     display: block; background: #12151c; border: 1px solid #2c3240;
     border-radius: .5rem; padding: .75rem; font-size: .95rem;
@@ -71,15 +81,29 @@
 
   <div id="result" hidden>
     <div class="field">
-      <label>Webhook ID &ndash; arm</label>
+      <div class="row">
+        <label>Webhook ID &ndash; arm</label>
+        <button class="icon" id="copy-arm" title="Copy" aria-label="Copy the arm webhook ID">
+          <svg class="mark" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="9" height="9" rx="2"/><path d="M3.5 10.5h-1a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v1"/></svg>
+          <svg class="tick" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+        </button>
+      </div>
       <code id="arm-id"></code>
     </div>
     <div class="field">
-      <label>Webhook ID &ndash; disarm</label>
+      <div class="row">
+        <label>Webhook ID &ndash; disarm</label>
+        <button class="icon" id="copy-disarm" title="Copy" aria-label="Copy the disarm webhook ID">
+          <svg class="mark" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="9" height="9" rx="2"/><path d="M3.5 10.5h-1a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v1"/></svg>
+          <svg class="tick" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 5"/></svg>
+        </button>
+      </div>
       <code id="disarm-id"></code>
     </div>
     <div class="field">
-      <label>Link for this person</label>
+      <div class="row">
+        <label>Link for this person</label>
+      </div>
       <code id="link"></code>
     </div>
     <div class="field">
@@ -169,24 +193,40 @@ function setupWizard() {
     copyBtn.textContent = 'Copy link';
   };
 
-  copyBtn.onclick = function () {
-    var done = function () { copyBtn.textContent = 'Copied'; };
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(linkEl.textContent).then(done, select);
-    } else {
-      select();
-    }
-  };
+  copy(document.getElementById('copy-arm'), armEl);
+  copy(document.getElementById('copy-disarm'), disarmEl);
+  copy(copyBtn, linkEl);
 
-  // Fallback where the clipboard API is unavailable (plain HTTP, old browsers):
-  // select the link so it can be copied by hand.
-  function select() {
-    var range = document.createRange();
-    range.selectNodeContents(linkEl);
-    var sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    copyBtn.textContent = 'Press Ctrl+C / long-press to copy';
+  // One copy handler for the two icons and the link button. The icons confirm
+  // by swapping to a tick, the wide button by changing its label.
+  function copy(btn, src) {
+    btn.onclick = function () {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(src.textContent).then(confirm, fallback);
+      } else {
+        fallback();
+      }
+    };
+
+    function confirm() {
+      if (btn === copyBtn) {
+        btn.textContent = 'Copied';
+      } else {
+        btn.classList.add('ok');
+        setTimeout(function () { btn.classList.remove('ok'); }, 1500);
+      }
+    }
+
+    // Where the clipboard API is unavailable (plain HTTP, old browsers):
+    // select the text so it can be copied by hand.
+    function fallback() {
+      var range = document.createRange();
+      range.selectNodeContents(src);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      if (btn === copyBtn) btn.textContent = 'Press Ctrl+C / long-press to copy';
+    }
   }
 }
 </script>
