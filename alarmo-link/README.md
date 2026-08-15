@@ -97,8 +97,14 @@ Home Assistant over HTTPS so it is not readable in transit.
 
 Some deliberate choices behind that:
 
-- **The IDs live in the URL fragment** (after `#`). Browsers never send the
-  fragment to the server, so the IDs stay out of access logs and proxy logs.
+- **The IDs live in the URL fragment** (after `#`), which browsers never send
+  to the server. Opening the page therefore logs nothing secret. **Pressing a
+  button does**: the request goes to `/api/webhook/<id>`, and a reverse proxy
+  in front of Home Assistant records that path. If you run one, its access log
+  holds working keys to your alarm — treat it as a secret store, keep its
+  retention short, and do not paste it into a support thread. Webhook IDs also
+  reach Home Assistant's own log when a call arrives for one that no longer
+  exists.
 - **The IDs are generated in your browser** with `crypto.getRandomValues`, a
   cryptographic random source. 32 characters from a 64-character alphabet —
   192 bits. Nothing is transmitted while you generate them.
@@ -110,6 +116,12 @@ Some deliberate choices behind that:
   instead: it reports what the panel actually did, two seconds later.
 
 The page never learns your codes, and it holds no credentials.
+
+What this does not give you: a link cannot be revoked without deleting the
+automation, there is no expiry, and one link cannot be told apart from a copy
+of itself. If a link may have leaked, replace both webhook IDs — that is the
+only revocation there is. And because the page carries no token, it cannot show
+the alarm's real state, only that a command was sent.
 
 ## Options
 
@@ -167,11 +179,19 @@ for a blueprint to ship translations.
 
 ## Troubleshooting
 
-**"Did not work – please call"** — the automation is disabled or deleted, or the
-webhook ID does not match. Check that the automation exists and is on.
+**"Did not work – please call"** — the request never reached Home Assistant:
+it is unreachable, or a reverse proxy is in the way. It does *not* mean the
+automation is missing; see the next entry.
 
-**Nothing happens, no error** — the Alarmo code is wrong, or that user is not
-allowed to arm or disarm. Alarmo logs the rejection in its own history.
+**The page says the command was sent, but nothing happened** — two causes, and
+the page cannot tell them apart:
+
+- The automation was deleted or disabled. Home Assistant answers `200 OK` for a
+  webhook it does not know, on purpose, so that nobody can probe which ids
+  exist. A revoked link therefore reports success. This is why the notification
+  matters: it is the only confirmation that anything ran.
+- The Alarmo code is wrong, or that user may not arm or disarm. Alarmo records
+  the rejection in its own history.
 
 **The alarm switches but no notification arrives** — check the log for
 `Can't parse entities`. A Telegram bot set to a Markdown parser chokes on
@@ -185,6 +205,19 @@ from the internet, or a reverse proxy is blocking `/api/webhook/`.
 truncated. Messengers sometimes cut long URLs; send it as plain text.
 
 ## Changelog
+
+### 1.4.1
+
+- The webhook id is percent-encoded before it goes into the request path. It
+  comes from the link, so a doctored link could previously use `../../` to walk
+  out of `/api/webhook/` and make a button press post to any path on the same
+  Home Assistant
+- Corrected the security notes. The fragment keeps the ids out of the log for
+  the *page load* only — pressing a button puts the id in the request path,
+  where a reverse proxy records it
+- Corrected the troubleshooting. Deleting an automation does not produce an
+  error on the page: Home Assistant answers `200 OK` for unknown webhooks by
+  design, so a revoked link reports success
 
 ### 1.4.0
 
