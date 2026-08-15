@@ -1,0 +1,146 @@
+# Alarmo Link
+
+Arm and disarm [Alarmo](https://github.com/nielsfaber/alarmo) from a private
+link — no Home Assistant account, no app, no login.  
+**Version 1.0.0 – first release**
+
+For the people who live in your home but do not use Home Assistant, and for
+cleaners or house sitters who should be able to set the alarm and nothing else.
+They get a URL. It looks like this on their phone:
+
+```
+┌────────────────────────┐
+│         Alarm          │
+│                        │
+│   🔒      Arm          │
+│                        │
+│   🔓     Disarm        │
+│                        │
+│   Arm command sent     │
+└────────────────────────┘
+```
+
+Add someone → create an automation from this blueprint.
+Remove someone → delete it. Their link dies instantly, nobody else is affected.
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FHubEight%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Falarmo-link%2Falarmo_link.yaml)
+
+## Requirements
+
+- [Alarmo](https://github.com/nielsfaber/alarmo) with at least one user who has a code
+- Home Assistant 2024.10 or newer
+- Home Assistant reachable from outside your network, over HTTPS
+
+## Installation
+
+**Two parts.** The blueprint handles the webhooks; the page is what people tap.
+Neither works alone.
+
+1. **The page** — copy `alarmo-link.html` to `config/www/alarmo-link.html`.
+   Create the `www` folder if it does not exist, then restart Home Assistant
+   (only needed the first time you create `www`).
+
+2. **The blueprint** — click the badge above, or import from
+   `https://github.com/HubEight/home-assistant-blueprints/blob/main/alarmo-link/alarmo_link.yaml`
+
+## Adding a person
+
+1. In Alarmo, create a user with their own code (**Alarmo → Users**).
+   Give every person a distinct code — Alarmo's history names the user that the
+   code belongs to, so a shared code names the wrong one.
+
+2. Open `https://<your-ha-url>/local/alarmo-link.html` — with no `#` in the
+   address. That is the setup screen. Press **Generate IDs**.
+
+   ```
+   ┌──────────────────────────────────────┐
+   │ Alarmo Link – Setup                  │
+   │                                      │
+   │        [  Generate IDs  ]            │
+   │                                      │
+   │ WEBHOOK ID – ARM                     │
+   │ nsK1FFGlxf1r9ydg0LtRn0mJv1eUOKyY     │
+   │                                      │
+   │ WEBHOOK ID – DISARM                  │
+   │ Pcl1LYdYV4d6rwz2F9nZYflhfd7Q_uZv     │
+   │                                      │
+   │ LINK FOR THIS PERSON                 │
+   │ https://ha.example.com/local/alarmo- │
+   │ link.html#nsK1FFGl…,Pcl1LYdY…        │
+   │                                      │
+   │        [   Copy link    ]            │
+   └──────────────────────────────────────┘
+   ```
+
+3. **Settings → Automations → Create Automation → From blueprint → Alarmo Link.**
+   Fill in the name, the Alarmo code, and paste the two generated IDs. Save.
+
+   When Home Assistant asks for the automation's name, put the person in it —
+   `Alarmo Link: <name>`. It suggests the blueprint's name, so otherwise every
+   automation you create is called "Alarmo Link" and you cannot tell them apart.
+   A blueprint cannot set this for you: the saved automation's own name always
+   wins over anything the blueprint provides.
+
+4. Send the person the link. On iOS and Android, *Add to Home Screen* turns it
+   into a full-screen icon.
+
+To remove someone, delete their automation. To give someone a fresh link,
+generate a new pair and replace both IDs in their automation.
+
+## Security
+
+**The link is the password.** There is no login — holding the URL is what grants
+access. Treat it like a house key: send it over a channel you trust, and serve
+Home Assistant over HTTPS so it is not readable in transit.
+
+Some deliberate choices behind that:
+
+- **The IDs live in the URL fragment** (after `#`). Browsers never send the
+  fragment to the server, so the IDs stay out of access logs and proxy logs.
+- **The IDs are generated in your browser** with `crypto.getRandomValues`, a
+  cryptographic random source. 32 characters from a 64-character alphabet —
+  192 bits. Nothing is transmitted while you generate them.
+- **The webhooks accept POST only.** Messengers fetch URLs to build link
+  previews; a GET webhook would trip the alarm the moment you sent the link.
+- **No API token in the page.** That is why it reports *"Arm command sent"*
+  rather than the alarm's real state — showing real state would need a token,
+  which is full access to Home Assistant. Use the blueprint's notification
+  instead: it reports what the panel actually did, two seconds later.
+
+The page never learns your codes, and it holds no credentials.
+
+## Options
+
+The form is grouped into four sections.
+
+| Section | Input | | |
+|---|---|---|---|
+| **Person** | Name | required | Shown in the notification, so you can tell who switched the alarm |
+| | Alarmo code | required | The code of the Alarmo user these actions are booked under |
+| **Link** | Webhook ID – arm | required | From the setup screen, or your own random string |
+| | Webhook ID – disarm | required | Must differ from the one above |
+| **Alarm** | Alarm panel | required | Your Alarmo `alarm_control_panel` entity |
+| | Arm mode | optional | Away, Home or Night — default Away |
+| **Notification** | Notify targets | optional | Reports the real state two seconds after the command |
+
+Leave a required field empty and Home Assistant refuses to save with
+`Message malformed: Missing input …`. Home Assistant has no way to mark fields
+as required in the form itself, so the blueprint says so in each label.
+
+## Troubleshooting
+
+**"Did not work – please call"** — the automation is disabled or deleted, or the
+webhook ID does not match. Check that the automation exists and is on.
+
+**Nothing happens, no error** — the Alarmo code is wrong, or that user is not
+allowed to arm or disarm. Alarmo logs the rejection in its own history.
+
+**The link works at home but not outside** — Home Assistant is not reachable
+from the internet, or a reverse proxy is blocking `/api/webhook/`.
+
+**Setup screen instead of the buttons** — the `#` part of the link is missing or
+truncated. Messengers sometimes cut long URLs; send it as plain text.
+
+## Support
+
+Bug? Idea? → [Open an issue on GitHub](https://github.com/HubEight/home-assistant-blueprints/issues)
