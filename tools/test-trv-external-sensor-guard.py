@@ -72,7 +72,7 @@ class Room:
 
     def __init__(self, inputs=None, seen_format="iso", names=OLD, trv_b_names=None,
                  area="Living room", thermometer_extra=(), trv_b_suffixes=None,
-                 thermometer_is_trv=False, sources=("external", "external")):
+                 thermometer_is_trv=False, sources=("external", "external"), created_later=False):
         self.inputs = inputs or {}
         self.seen_format = seen_format
         self.names = {SEL_A: names, SEL_B: trv_b_names or names}
@@ -81,6 +81,7 @@ class Room:
         self.trv_b_suffixes = trv_b_suffixes
         self.thermometer_is_trv = thermometer_is_trv
         self.start_sources = sources
+        self.created_later = created_later
         self.calls = []
         self.runs = 0
         self.heartbeat = True
@@ -108,7 +109,7 @@ class Room:
         hass.config_entries = config_entries.ConfigEntries(hass, {})
         await bootstrap.async_load_base_functionality(hass)
         self.devices = self._registry()
-        self.write_automation()
+        self.write_automation(present=not self.created_later)
         self._initial_states()
         if before_start:
             before_start(self)
@@ -175,8 +176,9 @@ class Room:
         return [{"id": "guard", "alias": "Guard",
                  "use_blueprint": {"path": f"test/{BLUEPRINT.name}", "input": inputs}}]
 
-    def write_automation(self):
-        Path(self.dir, "automations.yaml").write_text(yaml.safe_dump(self.automation_config()))
+    def write_automation(self, present=True):
+        config = self.automation_config() if present else []
+        Path(self.dir, "automations.yaml").write_text(yaml.safe_dump(config))
 
     def _initial_states(self):
         S = self.hass.states.async_set
@@ -344,45 +346,26 @@ async def case_one_thermostat_differs():
     await r.stop()
 
 
+async def resend_minutes(r, minutes):
+    """Advance minute by minute; the minutes (since start) at which both were sent."""
+    at = []
+    for m in range(1, minutes + 1):
+        await r.advance(1)
+        calls, _ = r.take()
+        if sends(calls) == [(IN_A, 21.0), (IN_B, 21.0)]:
+            at.append(m)
+        elif calls:
+            at.append(("unexpected", m, calls))
+    return at
+
+
 async def case_resend(minutes):
     r = await Room(inputs={"resend_minutes": minutes}).start()
-    r.take()
-    await r.advance(minutes - 1)
-    check(f"resend {minutes} min: nothing before", r.take(), ([], 0))
-    await r.advance(2)
-    calls, runs = r.take()
-    check(f"resend {minutes} min: sent once when due", (runs, sends(calls)), (1, [(IN_A, 21.0), (IN_B, 21.0)]))
-    await r.advance(minutes - 2)
-    check(f"resend {minutes} min: clock restarts", r.take(), ([], 0))
-    await r.advance(2)
-    check(f"resend {minutes} min: and fires again", sends(r.take()[0]), [(IN_A, 21.0), (IN_B, 21.0)])
-    await r.stop()
-
-
-async def case_resend_after_change():
-    r = await Room().start()
-    r.take()
-    await r.advance(30)
-    r.set(TEMP, "21.6")
-    await r.settle()
-    r.take()
-    await r.advance(59)
-    check("resend counts from the last send, not from start", r.take(), ([], 0))
-    await r.advance(2)
-    check("resend 60 min after the last send", sends(r.take()[0]), [(IN_A, 21.6), (IN_B, 21.6)])
-    await r.stop()
-
-
-async def case_resend_clock_after_reconcile():
-    r = await Room().start()
-    r.take()
-    await r.advance(50)
-    await r.service("automation", "turn_off", {"entity_id": "automation.guard"})
-    await r.service("automation", "turn_on", {"entity_id": "automation.guard"})
-    calls, runs = r.take()
-    # The run restarts the resend clock, so it has to send: otherwise the next
-    # send would come 110 min after the last one.
-    check("reconcile with nothing to switch still sends", (runs, sends(calls)), (1, [(IN_A, 21.0), (IN_B, 21.0)]))
+    r.take()  # the start sends too
+    at = await resend_minutes(r, 3 * minutes)
+    gaps = [b - a for a, b in zip([0] + at, at)] if all(isinstance(m, int) for m in at) else at
+    check(f"resend {minutes} min: three sends in three intervals, none more than {minutes} min apart",
+          (len(at), max(gaps) <= minutes if gaps else False), (3, True))
     await r.stop()
 
 
@@ -587,6 +570,19 @@ async def case_reload():
     await r.stop()
 
 
+async def case_created():
+    r = await Room(created_later=True, sources=("internal", "external")).start()
+    check("no automation yet: nothing", r.take(), ([], 0))
+    r.write_automation()
+    await r.service("automation", "reload")
+    calls, runs = r.take()
+    check("automation created: one run, switched and sent",
+          (runs, switches(calls), sends(calls)), (1, [(SEL_A, "external")], [(IN_A, 21.0), (IN_B, 21.0)]))
+    at = await resend_minutes(r, 60)
+    check("created: resend works without a restart", len(at), 1)
+    await r.stop()
+
+
 async def case_mixed_names():
     r = await Room(names=OLD, trv_b_names=NEW, sources=("internal", "external")).start()
     calls, _ = r.take()
@@ -694,8 +690,6 @@ async def main():
     await case_one_thermostat_differs()
     await case_resend(60)
     await case_resend(90)
-    await case_resend_after_change()
-    await case_resend_clock_after_reconcile()
     await case_offline_alive(OLD)
     await case_offline_alive(NEW)
     await case_outage(OLD)
@@ -712,6 +706,7 @@ async def main():
     await case_start_during_outage()
     await case_enable()
     await case_reload()
+    await case_created()
     await case_mixed_names()
     await case_missing_and_duplicate()
     await case_thermometer_is_trv()

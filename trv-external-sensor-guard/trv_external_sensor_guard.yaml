@@ -4,7 +4,7 @@ blueprint:
     Lets Sonoff TRVZB thermostats regulate by a room thermometer instead of the
     sensor on the radiator. Sends the room temperature, switches the thermostats
     to their internal sensor when the room thermometer goes silent, and back when
-    it returns. One automation per room. Version 1.0.0
+    it returns. One automation per room. Version 1.1.0
   domain: automation
   author: HubEight
   source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/trv-external-sensor-guard/trv_external_sensor_guard.yaml
@@ -14,150 +14,169 @@ blueprint:
     min_version: "2025.4.0"
 
   input:
-    thermostats:
-      name: Thermostats
-      description: The thermostats of this room. Several may be selected.
-      selector:
-        device:
-          multiple: true
-          filter:
-            - manufacturer: SONOFF
-              model_id: TRVZB
-            - manufacturer: SONOFF
-              model_id: TRV-ZBT
+    room:
+      name: Room
+      icon: mdi:radiator
+      input:
+        thermostats:
+          name: Thermostats
+          description: The thermostats of this room. Several may be selected.
+          selector:
+            device:
+              multiple: true
+              filter:
+                - manufacturer: SONOFF
+                  model_id: TRVZB
+                - manufacturer: SONOFF
+                  model_id: TRV-ZBT
 
-    room_thermometer:
-      name: Room thermometer
-      description: >-
-        The thermometer in the room. Thermostats show up in this list too,
-        because they have a temperature sensor - do not pick one.
-      selector:
-        device:
-          filter:
-            - integration: mqtt
-          entity:
-            - domain: sensor
-              device_class: temperature
+        room_thermometer:
+          name: Room thermometer
+          description: >-
+            The thermometer in the room. Thermostats show up in this list too,
+            because they have a temperature sensor - do not pick one.
+          selector:
+            device:
+              filter:
+                - integration: mqtt
+              entity:
+                - domain: sensor
+                  device_class: temperature
 
-    room_name:
-      name: Room name (optional)
-      description: >-
-        Used in the logbook and notifications. Empty = the area of the room
-        thermometer, or its device name if it has no area.
-      default: ""
-      selector:
-        text:
+        room_name:
+          name: Room name (optional)
+          description: >-
+            Used in the logbook and notifications. Empty = the area of the room
+            thermometer, or its device name if it has no area.
+          default: ""
+          selector:
+            text:
 
-    failure_minutes:
-      name: Failure limit (minutes)
-      description: >-
-        How long the room thermometer may stay silent before the thermostats
-        switch to their internal sensor. The thermostat falls back on its own
-        after 120 minutes without an external value, so a limit of 120 or more
-        means this automation never gets there first.
-      default: 20
-      selector:
-        number:
-          min: 1
-          mode: box
-          unit_of_measurement: min
+    timing:
+      name: Timing
+      icon: mdi:timer-outline
+      input:
+        failure_minutes:
+          name: Failure limit (minutes)
+          description: >-
+            How long the room thermometer may stay silent before the thermostats
+            switch to their internal sensor. The thermostat falls back on its own
+            after 120 minutes without an external value, so a limit of 120 or more
+            means this automation never gets there first.
+          default: 20
+          selector:
+            number:
+              min: 1
+              mode: box
+              unit_of_measurement: min
 
-    resend_minutes:
-      name: Resend interval (minutes)
-      description: >-
-        The temperature is sent on every change, and again after this long
-        even when it has not changed. At 120 or more the thermostat's own
-        120-minute fallback kicks in between sends and it reports the external
-        sensor as offline.
-      default: 60
-      selector:
-        number:
-          min: 1
-          mode: box
-          unit_of_measurement: min
+        resend_minutes:
+          name: Resend interval (minutes)
+          description: >-
+            The temperature is sent on every change, and on the clock every this
+            many minutes even when it has not changed (on the hour for 60). At 120
+            or more the thermostat's own 120-minute fallback kicks in between sends
+            and it reports the external sensor as offline.
+          default: 60
+          selector:
+            number:
+              min: 2
+              mode: box
+              unit_of_measurement: min
 
-    suffix_temperature:
-      name: Suffix - room temperature
-      description: End of the room thermometer's temperature entity ID.
-      default: _temperature
-      selector:
-        text:
+    notifications:
+      name: Notifications
+      icon: mdi:bell-outline
+      description: Optional. Every switch goes to the logbook either way.
+      input:
+        notify_device:
+          name: Notify device (optional)
+          description: A phone with the Home Assistant Companion app.
+          default: ""
+          selector:
+            device:
+              filter:
+                - integration: mobile_app
 
-    suffix_last_seen:
-      name: Suffix - last seen
-      description: >-
-        End of the room thermometer's last seen entity ID. Needs last_seen
-        enabled in Zigbee2MQTT.
-      default: _last_seen
-      selector:
-        text:
+        notify_title:
+          name: Notification title
+          description: "Placeholders: {{ room }}, {{ source }}, {{ reason }}, {{ silence_minutes }}"
+          default: "{{ room }}: thermostat sensor"
+          selector:
+            text:
 
-    suffix_external_input:
-      name: Suffix - external temperature input
-      description: End of the thermostat's external temperature number entity ID.
-      default: _external_temperature_input
-      selector:
-        text:
+        notify_message_internal:
+          name: Message - switched to internal
+          default: >-
+            Room thermometer silent for {{ silence_minutes }} min. The thermostats
+            now use their own sensor.
+          selector:
+            text:
+              multiline: true
 
-    suffix_sensor_source:
-      name: Suffix - sensor source
-      description: End of the thermostat's temperature sensor select entity ID.
-      default: _temperature_sensor_select
-      selector:
-        text:
+        notify_message_external:
+          name: Message - switched to external
+          default: The thermostats use the room thermometer again.
+          selector:
+            text:
+              multiline: true
 
-    notify_device:
-      name: Notify device (optional)
-      description: A phone with the Home Assistant Companion app.
-      default: ""
-      selector:
-        device:
-          filter:
-            - integration: mobile_app
+        notify_action:
+          name: Custom notification action (optional)
+          description: >-
+            Runs on every switch of the sensor source, alongside the notify device
+            if both are set. Variables: room, source (internal / external), reason
+            (outage / recovered / manual / reconcile), silence_minutes.
+          default: []
+          selector:
+            action:
 
-    notify_title:
-      name: Notification title
-      description: "Placeholders: {{ room }}, {{ source }}, {{ reason }}, {{ silence_minutes }}"
-      default: "{{ room }}: thermostat sensor"
-      selector:
-        text:
+        notify_switch:
+          name: Notification switch (optional)
+          description: >-
+            If set, notifications are only sent while it is on. The guard itself
+            keeps working either way.
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
 
-    notify_message_internal:
-      name: Message - switched to internal
-      default: >-
-        Room thermometer silent for {{ silence_minutes }} min. The thermostats
-        now use their own sensor.
-      selector:
-        text:
-          multiline: true
+    suffixes:
+      name: Entity suffixes
+      icon: mdi:tag-outline
+      description: How the entities are found on each device. Change only if your entity IDs end differently.
+      collapsed: true
+      input:
+        suffix_temperature:
+          name: Suffix - room temperature
+          description: End of the room thermometer's temperature entity ID.
+          default: _temperature
+          selector:
+            text:
 
-    notify_message_external:
-      name: Message - switched to external
-      default: The thermostats use the room thermometer again.
-      selector:
-        text:
-          multiline: true
+        suffix_last_seen:
+          name: Suffix - last seen
+          description: >-
+            End of the room thermometer's last seen entity ID. Needs last_seen
+            enabled in Zigbee2MQTT.
+          default: _last_seen
+          selector:
+            text:
 
-    notify_action:
-      name: Custom notification action (optional)
-      description: >-
-        Runs on every switch of the sensor source, alongside the notify device
-        if both are set. Variables: room, source (internal / external), reason
-        (outage / recovered / manual / reconcile), silence_minutes.
-      default: []
-      selector:
-        action:
+        suffix_external_input:
+          name: Suffix - external temperature input
+          description: End of the thermostat's external temperature number entity ID.
+          default: _external_temperature_input
+          selector:
+            text:
 
-    notify_switch:
-      name: Notification switch (optional)
-      description: >-
-        If set, notifications are only sent while it is on. The guard itself
-        keeps working either way.
-      default: ""
-      selector:
-        entity:
-          filter:
-            - domain: input_boolean
+        suffix_sensor_source:
+          name: Suffix - sensor source
+          description: End of the thermostat's temperature sensor select entity ID.
+          default: _temperature_sensor_select
+          selector:
+            text:
 
 mode: queued
 max: 20
@@ -198,7 +217,6 @@ trigger_variables:
   offline_options: [external_2, remote_source_offline]
   unreachable: [unavailable, unknown]
   failure_seconds: "{{ failure_minutes * 60 }}"
-  resend_seconds: "{{ resend_minutes * 60 }}"
 
 # Template triggers fire only when their value turns from false to true. Each
 # one describes a gap between how things are and how they should be, so the
@@ -209,15 +227,20 @@ trigger_variables:
 #             Home Assistant. Zigbee2MQTT restores the old last seen after a
 #             restart; counted from there, every room would switch at once.
 # Last seen comes in three Zigbee2MQTT formats: ISO, ISO local, epoch ms.
-# Saving an automation with changes recreates it, which the "on" template sees
-# as being switched on. An automation_reloaded trigger would fire alongside it,
-# and a reload without changes has nothing to reconcile.
+# Reconcile on start, when switched on, and when created or saved. Saving
+# with changes recreates the automation, which the "on" template sees as being
+# switched on. A newly created one is attached before it has a state, so
+# "this" is still empty and that template cannot fire; the reload event that
+# follows its creation covers it (see conditions).
 triggers:
   - trigger: homeassistant
     event: start
     id: reconcile
   - trigger: template
-    value_template: "{{ is_state(this.entity_id, 'on') }}"
+    value_template: "{{ this is not none and is_state(this.entity_id, 'on') }}"
+    id: reconcile
+  - trigger: event
+    event_type: automation_reloaded
     id: reconcile
 
   - trigger: template
@@ -257,8 +280,9 @@ triggers:
       {{ config_ok and t is not none and now().timestamp() - t < failure_seconds
          and sources | select('is_state', offline_options) | list | count > 0 }}
 
-  # Resend clock: the automation's own last_triggered. Every run while the
-  # thermometer is alive sends, so the last run is the last send.
+  # Resend on the clock: true for one minute in every resend interval,
+  # counted from the epoch, so on the hour for 60. Nothing here depends on the
+  # automation's own state, which a newly created one does not have yet.
   - trigger: template
     id: resend
     value_template: >-
@@ -267,7 +291,7 @@ triggers:
       {% set n = now().timestamp() %}
       {{ config_ok and t is not none and n - t < failure_seconds
          and states(temperature_entity) | is_number
-         and n - as_timestamp(state_attr(this.entity_id, 'last_triggered'), 0) >= resend_seconds }}
+         and (n / 60) | int % (resend_minutes | int) == 0 }}
 
 variables:
   room_input: !input room_name
@@ -332,12 +356,16 @@ variables:
   notify_message_internal: !input notify_message_internal
   notify_message_external: !input notify_message_external
 
-# A run that does nothing still counts as one, and would reset the resend clock.
+# Runs only when there is something to do. The reload event is let through
+# only for an automation that has never run, i.e. one just created: on a save
+# with changes the "on" template has already reconciled, and a reload without
+# changes has nothing to reconcile.
 conditions:
   - condition: template
     value_template: >-
-      {{ trigger.id == 'reconcile'
-         or thermometer_state == ('outage' if trigger.id == 'to_internal' else 'alive') }}
+      {% if trigger.platform == 'event' %}{{ this.attributes.last_triggered | default(none) is none }}
+      {% else %}{{ trigger.id == 'reconcile'
+         or thermometer_state == ('outage' if trigger.id == 'to_internal' else 'alive') }}{% endif %}
 
 actions:
   - if:

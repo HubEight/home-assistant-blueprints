@@ -3,7 +3,7 @@
 Lets Sonoff TRVZB radiator thermostats regulate by the thermometer in the room
 instead of the sensor sitting on the hot radiator — and keeps that safe when the
 room thermometer goes silent.
-**Version 1.0.0**
+**Version 1.1.0**
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FHubEight%2Fhome-assistant-blueprints%2Fblob%2Fmain%2Ftrv-external-sensor-guard%2Ftrv_external_sensor_guard.yaml)
 
@@ -30,13 +30,16 @@ produces no runs at all, apart from the resend.
 
 ## Inputs
 
+Grouped in four sections: Room, Timing, Notifications, and Entity suffixes
+(collapsed, rarely needed).
+
 | Input | Default | |
 |---|---|---|
 | Thermostats | – | Devices, several allowed. Only Sonoff TRVZB / TRV-ZBT are listed |
 | Room thermometer | – | A Zigbee2MQTT device with a temperature sensor. Thermostats appear in this list too — do not pick one |
 | Room name | empty | Empty = the room thermometer's area, or its device name without an area |
 | Failure limit | 20 min | Silence after which the thermostats go to internal |
-| Resend interval | 60 min | Longest time between two sends of the temperature |
+| Resend interval | 60 min | Longest time between two sends of the temperature, at least 2 |
 | Four suffixes | `_temperature`, `_last_seen`, `_external_temperature_input`, `_temperature_sensor_select` | How the entities are found on each device. Change them only if your entity IDs end differently |
 | Notify device | – | A phone with the Companion app |
 | Title, two messages | English texts | For the notify device |
@@ -78,11 +81,10 @@ a minute later. Only time in which the thermometer could have reported counts.
 | A thermostat is switched to internal | alive | Back to external, send, notify | `manual` |
 | A thermostat's value differs from the thermometer (0.1 °C) | alive | Send to all | – |
 | A thermostat reports the external sensor offline | alive | Send (the thermostat returns to external by itself), logbook note | – |
-| Resend interval since the last run | alive | Send | – |
-| Home Assistant start, automation switched on or saved with changes | – | Check the configuration, then all of the above once | `reconcile` |
+| Resend interval reached, on the clock (on the hour for 60) | alive | Send | – |
+| Home Assistant start, automation created, switched on or saved with changes | – | Check the configuration, then all of the above once | `reconcile` |
 
-Every run while the room thermometer is alive sends the temperature. The
-resend interval counts from the last run, so that keeps it honest.
+Every run while the room thermometer is alive sends the temperature.
 
 A thermostat that comes back after being unreachable is caught by the same
 rules; a switch it missed is made up with `reason: reconcile`. Unreachable
@@ -161,6 +163,21 @@ Example custom action with iOS extras:
 - Zigbee2MQTT only, not ZHA.
 
 ## Changelog
+
+### 1.1.0
+
+- **Fixed: a newly created automation did not check itself and did not
+  resend until the next restart.** Home Assistant attaches the triggers of a
+  new automation before it has a state, and two triggers looked at that
+  state. The first check now runs on the reload that follows the creation,
+  and the resend no longer depends on the automation's own state: it runs on
+  the clock, every resend interval (on the hour for 60). The temperature was
+  still sent on every change in 1.0.0
+- The resend interval is at least 2 minutes now; at 1 the clock-based
+  trigger could never fire again
+- The form is grouped into sections: Room, Timing, Notifications, and the
+  entity suffixes, which start collapsed. Existing automations keep their
+  settings
 
 ### 1.0.0
 
