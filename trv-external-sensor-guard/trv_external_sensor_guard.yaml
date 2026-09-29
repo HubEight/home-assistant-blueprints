@@ -1,0 +1,421 @@
+blueprint:
+  name: TRV External Sensor Guard
+  description: >-
+    Lets Sonoff TRVZB thermostats regulate by a room thermometer instead of the
+    sensor on the radiator. Sends the room temperature, switches the thermostats
+    to their internal sensor when the room thermometer goes silent, and back when
+    it returns. One automation per room. Version 1.0.0
+  domain: automation
+  author: HubEight
+  source_url: https://github.com/HubEight/home-assistant-blueprints/blob/main/trv-external-sensor-guard/trv_external_sensor_guard.yaml
+  # The model_id filter on the thermostat selector arrived in 2025.4. An older
+  # installation would reject the import with a schema error instead.
+  homeassistant:
+    min_version: "2025.4.0"
+
+  input:
+    thermostats:
+      name: Thermostats
+      description: The thermostats of this room. Several may be selected.
+      selector:
+        device:
+          multiple: true
+          filter:
+            - manufacturer: SONOFF
+              model_id: TRVZB
+            - manufacturer: SONOFF
+              model_id: TRV-ZBT
+
+    room_thermometer:
+      name: Room thermometer
+      description: >-
+        The thermometer in the room. Thermostats show up in this list too,
+        because they have a temperature sensor - do not pick one.
+      selector:
+        device:
+          filter:
+            - integration: mqtt
+          entity:
+            - domain: sensor
+              device_class: temperature
+
+    room_name:
+      name: Room name (optional)
+      description: >-
+        Used in the logbook and notifications. Empty = the area of the room
+        thermometer, or its device name if it has no area.
+      default: ""
+      selector:
+        text:
+
+    failure_minutes:
+      name: Failure limit (minutes)
+      description: >-
+        How long the room thermometer may stay silent before the thermostats
+        switch to their internal sensor. The thermostat falls back on its own
+        after 120 minutes without an external value, so a limit of 120 or more
+        means this automation never gets there first.
+      default: 20
+      selector:
+        number:
+          min: 1
+          mode: box
+          unit_of_measurement: min
+
+    resend_minutes:
+      name: Resend interval (minutes)
+      description: >-
+        The temperature is sent on every change, and again after this long
+        even when it has not changed. At 120 or more the thermostat's own
+        120-minute fallback kicks in between sends and it reports the external
+        sensor as offline.
+      default: 60
+      selector:
+        number:
+          min: 1
+          mode: box
+          unit_of_measurement: min
+
+    suffix_temperature:
+      name: Suffix - room temperature
+      description: End of the room thermometer's temperature entity ID.
+      default: _temperature
+      selector:
+        text:
+
+    suffix_last_seen:
+      name: Suffix - last seen
+      description: >-
+        End of the room thermometer's last seen entity ID. Needs last_seen
+        enabled in Zigbee2MQTT.
+      default: _last_seen
+      selector:
+        text:
+
+    suffix_external_input:
+      name: Suffix - external temperature input
+      description: End of the thermostat's external temperature number entity ID.
+      default: _external_temperature_input
+      selector:
+        text:
+
+    suffix_sensor_source:
+      name: Suffix - sensor source
+      description: End of the thermostat's temperature sensor select entity ID.
+      default: _temperature_sensor_select
+      selector:
+        text:
+
+    notify_device:
+      name: Notify device (optional)
+      description: A phone with the Home Assistant Companion app.
+      default: ""
+      selector:
+        device:
+          filter:
+            - integration: mobile_app
+
+    notify_title:
+      name: Notification title
+      description: "Placeholders: {{ room }}, {{ source }}, {{ reason }}, {{ silence_minutes }}"
+      default: "{{ room }}: thermostat sensor"
+      selector:
+        text:
+
+    notify_message_internal:
+      name: Message - switched to internal
+      default: >-
+        Room thermometer silent for {{ silence_minutes }} min. The thermostats
+        now use their own sensor.
+      selector:
+        text:
+          multiline: true
+
+    notify_message_external:
+      name: Message - switched to external
+      default: The thermostats use the room thermometer again.
+      selector:
+        text:
+          multiline: true
+
+    notify_action:
+      name: Custom notification action (optional)
+      description: >-
+        Runs on every switch of the sensor source, alongside the notify device
+        if both are set. Variables: room, source (internal / external), reason
+        (outage / recovered / manual / reconcile), silence_minutes.
+      default: []
+      selector:
+        action:
+
+    notify_switch:
+      name: Notification switch (optional)
+      description: >-
+        If set, notifications are only sent while it is on. The guard itself
+        keeps working either way.
+      default: ""
+      selector:
+        entity:
+          filter:
+            - domain: input_boolean
+
+mode: queued
+max: 20
+
+# Limited templates: device_entities() works here, states() does not. The
+# entities are found by suffix because a state trigger will not take an entity
+# derived at runtime, and a blueprint cannot create timer helpers.
+trigger_variables:
+  thermometer: !input room_thermometer
+  thermostat_input: !input thermostats
+  failure_minutes: !input failure_minutes
+  resend_minutes: !input resend_minutes
+  suffix_temperature: !input suffix_temperature
+  suffix_last_seen: !input suffix_last_seen
+  suffix_external_input: !input suffix_external_input
+  suffix_sensor_source: !input suffix_sensor_source
+  thermostats: "{{ [thermostat_input] if thermostat_input is string else thermostat_input }}"
+  # One entry per device and suffix: the thermometer's two first, then each
+  # thermostat's input and source.
+  lookups: >-
+    {% set ns = namespace(out=[], wanted=[[thermometer, 'sensor', suffix_temperature],
+                                          [thermometer, 'sensor', suffix_last_seen]]) %}
+    {% for t in thermostats %}
+      {% set ns.wanted = ns.wanted + [[t, 'number', suffix_external_input], [t, 'select', suffix_sensor_source]] %}
+    {% endfor %}
+    {% for device, domain, suffix in ns.wanted %}
+      {% set found = device_entities(device) | select('match', domain ~ '\\.') | select('search', suffix ~ '$') | list %}
+      {% set ns.out = ns.out + [{'device': device, 'domain': domain, 'suffix': suffix, 'entities': found}] %}
+    {% endfor %}
+    {{ ns.out }}
+  config_ok: "{{ thermostats | count > 0 and lookups | map(attribute='entities') | map('count') | reject('eq', 1) | list | count == 0 }}"
+  temperature_entity: "{{ lookups[0].entities[0] if config_ok else '' }}"
+  last_seen_entity: "{{ lookups[1].entities[0] if config_ok else '' }}"
+  inputs: "{{ lookups[2::2] | map(attribute='entities') | map('first') | list if config_ok else [] }}"
+  sources: "{{ lookups[3::2] | map(attribute='entities') | map('first') | list if config_ok else [] }}"
+  internal_options: [internal, local_temperature]
+  external_options: [external, external_3, remote_temperature]
+  offline_options: [external_2, remote_source_offline]
+  unreachable: [unavailable, unknown]
+  failure_seconds: "{{ failure_minutes * 60 }}"
+  resend_seconds: "{{ resend_minutes * 60 }}"
+
+# Template triggers fire only when their value turns from false to true. Each
+# one describes a gap between how things are and how they should be, so the
+# automation runs only when there is something to do. The thermometer's state
+# is spelt out in each, since trigger templates cannot share a variable:
+#   alive   - last seen is a valid time, younger than the failure limit
+#   outage  - last seen is older than the limit, and so is its last change in
+#             Home Assistant. Zigbee2MQTT restores the old last seen after a
+#             restart; counted from there, every room would switch at once.
+# Last seen comes in three Zigbee2MQTT formats: ISO, ISO local, epoch ms.
+# Saving an automation with changes recreates it, which the "on" template sees
+# as being switched on. An automation_reloaded trigger would fire alongside it,
+# and a reload without changes has nothing to reconcile.
+triggers:
+  - trigger: homeassistant
+    event: start
+    id: reconcile
+  - trigger: template
+    value_template: "{{ is_state(this.entity_id, 'on') }}"
+    id: reconcile
+
+  - trigger: template
+    id: to_internal
+    value_template: >-
+      {% set s = states(last_seen_entity) %}
+      {% set t = s | float(0) / 1000 if s | is_number else as_timestamp(s, none) %}
+      {% set n = now().timestamp() %}
+      {{ config_ok and t is not none and n - t >= failure_seconds
+         and n - as_timestamp(states[last_seen_entity].last_changed) >= failure_seconds
+         and sources | reject('is_state', internal_options + unreachable) | list | count > 0 }}
+
+  - trigger: template
+    id: to_external
+    value_template: >-
+      {% set s = states(last_seen_entity) %}
+      {% set t = s | float(0) / 1000 if s | is_number else as_timestamp(s, none) %}
+      {{ config_ok and t is not none and now().timestamp() - t < failure_seconds
+         and sources | select('is_state', internal_options) | list | count > 0 }}
+
+  - trigger: template
+    id: differs
+    value_template: >-
+      {% set s = states(last_seen_entity) %}
+      {% set t = s | float(0) / 1000 if s | is_number else as_timestamp(s, none) %}
+      {% set temp = states(temperature_entity) %}
+      {{ config_ok and t is not none and now().timestamp() - t < failure_seconds
+         and temp | is_number
+         and inputs | reject('is_state', 'unavailable') | map('states') | map('float', none)
+             | map('round', 1) | reject('eq', temp | float | round(1)) | list | count > 0 }}
+
+  - trigger: template
+    id: offline
+    value_template: >-
+      {% set s = states(last_seen_entity) %}
+      {% set t = s | float(0) / 1000 if s | is_number else as_timestamp(s, none) %}
+      {{ config_ok and t is not none and now().timestamp() - t < failure_seconds
+         and sources | select('is_state', offline_options) | list | count > 0 }}
+
+  # Resend clock: the automation's own last_triggered. Every run while the
+  # thermometer is alive sends, so the last run is the last send.
+  - trigger: template
+    id: resend
+    value_template: >-
+      {% set s = states(last_seen_entity) %}
+      {% set t = s | float(0) / 1000 if s | is_number else as_timestamp(s, none) %}
+      {% set n = now().timestamp() %}
+      {{ config_ok and t is not none and n - t < failure_seconds
+         and states(temperature_entity) | is_number
+         and n - as_timestamp(state_attr(this.entity_id, 'last_triggered'), 0) >= resend_seconds }}
+
+variables:
+  room_input: !input room_name
+  notify_device: !input notify_device
+  notify_switch: !input notify_switch
+  thermometer_is_thermostat: "{{ device_attr(thermometer, 'model_id') in ['TRVZB', 'TRV-ZBT'] }}"
+  seen: >-
+    {% set s = states(last_seen_entity) %}
+    {{ s | float(0) / 1000 if s | is_number else as_timestamp(s, none) }}
+  thermometer_state: >-
+    {% set n = now().timestamp() %}
+    {% if not config_ok or thermometer_is_thermostat or seen is none %}unknown
+    {% elif n - seen < failure_seconds %}alive
+    {% elif n - as_timestamp(states[last_seen_entity].last_changed) >= failure_seconds %}outage
+    {% else %}unknown{% endif %}
+  silence_minutes: "{{ ((now().timestamp() - seen) / 60) | round(0) | int if seen is not none else '' }}"
+  room: >-
+    {{ room_input or area_name(thermometer) or device_attr(thermometer, 'name_by_user')
+       or device_attr(thermometer, 'name') }}
+  reachable_sources: "{{ sources | reject('is_state', unreachable) | list }}"
+  reachable_inputs: "{{ inputs | reject('is_state', 'unavailable') | list }}"
+  temperature: "{{ states(temperature_entity) | float(none) | round(1) if states(temperature_entity) | is_number else none }}"
+  # Only these triggers switch. The others run right after a switch has been
+  # sent but before the thermostat confirmed it, and would switch again.
+  may_switch: "{{ trigger.id in ['reconcile', 'to_internal', 'to_external'] }}"
+  source: "{{ 'internal' if thermometer_state == 'outage' else 'external' }}"
+  to_switch: >-
+    {% if not may_switch %}{{ [] }}
+    {% elif thermometer_state == 'outage' %}{{ reachable_sources | reject('is_state', internal_options) | list }}
+    {% elif thermometer_state == 'alive' %}{{ reachable_sources | select('is_state', internal_options) | list }}
+    {% else %}{{ [] }}{% endif %}
+  target_family: "{{ internal_options if source == 'internal' else external_options }}"
+  from_state: "{{ trigger.from_state.state if trigger.from_state is defined and trigger.from_state else '' }}"
+  reason: >-
+    {% if trigger.id == 'reconcile' or (trigger.entity_id in sources and from_state in unreachable) %}reconcile
+    {% elif source == 'internal' %}outage
+    {% elif trigger.entity_id in sources %}manual
+    {% else %}recovered{% endif %}
+  send: "{{ thermometer_state == 'alive' and temperature is not none and reachable_inputs | count > 0 }}"
+  config_warnings: >-
+    {% set name = this.attributes.friendly_name %}
+    {% set ns = namespace(w=[]) %}
+    {% for l in lookups if l.entities | count != 1 %}
+      {% set ns.w = ns.w + [name ~ ": device '" ~ (device_attr(l.device, 'name_by_user') or device_attr(l.device, 'name') or l.device)
+         ~ "' has " ~ l.entities | count ~ " " ~ l.domain ~ " entities ending in '" ~ l.suffix ~ "' "
+         ~ l.entities ~ ", expected exactly one. Nothing is switched."] %}
+    {% endfor %}
+    {% if thermostats | count == 0 %}
+      {% set ns.w = ns.w + [name ~ ": no thermostat selected. Nothing is switched."] %}
+    {% endif %}
+    {% if thermometer_is_thermostat %}
+      {% set ns.w = ns.w + [name ~ ": the room thermometer '" ~ (device_attr(thermometer, 'name_by_user') or device_attr(thermometer, 'name'))
+         ~ "' is a thermostat (" ~ device_attr(thermometer, 'model_id') ~ "). Pick the thermometer in the room instead. Nothing is switched."] %}
+    {% endif %}
+    {% for label, minutes in [['Failure limit', failure_minutes], ['Resend interval', resend_minutes]] if minutes | float >= 120 %}
+      {% set ns.w = ns.w + [name ~ ": " ~ label ~ " is " ~ minutes ~ " min. The thermostat falls back to its own sensor after 120 min without an external value, so this should be below 120."] %}
+    {% endfor %}
+    {{ ns.w }}
+  notify_on: "{{ not notify_switch or is_state(notify_switch, 'on') }}"
+  # Rendered here, after room, source, reason and silence_minutes exist.
+  notify_title: !input notify_title
+  notify_message_internal: !input notify_message_internal
+  notify_message_external: !input notify_message_external
+
+# A run that does nothing still counts as one, and would reset the resend clock.
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.id == 'reconcile'
+         or thermometer_state == ('outage' if trigger.id == 'to_internal' else 'alive') }}
+
+actions:
+  - if:
+      - condition: template
+        value_template: "{{ trigger.id == 'reconcile' }}"
+    then:
+      - repeat:
+          for_each: "{{ config_warnings }}"
+          sequence:
+            - action: system_log.write
+              data:
+                level: warning
+                logger: blueprints.trv_external_sensor_guard
+                message: "{{ repeat.item }}"
+
+  - repeat:
+      for_each: "{{ to_switch }}"
+      sequence:
+        - action: select.select_option
+          continue_on_error: true
+          target:
+            entity_id: "{{ repeat.item }}"
+          data:
+            # Write the name this thermostat offers: Zigbee2MQTT renamed the
+            # options (internal -> local_temperature and so on).
+            option: >-
+              {{ (state_attr(repeat.item, 'options') or []) | select('in', target_family)
+                 | first | default(target_family[0]) }}
+
+  - if:
+      - condition: template
+        value_template: "{{ to_switch | count > 0 }}"
+    then:
+      - action: logbook.log
+        data:
+          name: "{{ this.attributes.friendly_name }}"
+          entity_id: "{{ this.entity_id }}"
+          message: >-
+            {{ room }}: {{ to_switch | join(', ') }} switched to {{ source }}
+            (reason {{ reason }}{{ ', silent ' ~ silence_minutes ~ ' min' if silence_minutes != '' }})
+
+  - if:
+      - condition: template
+        value_template: "{{ send }}"
+    then:
+      - repeat:
+          for_each: "{{ reachable_inputs }}"
+          sequence:
+            - action: number.set_value
+              continue_on_error: true
+              target:
+                entity_id: "{{ repeat.item }}"
+              data:
+                value: "{{ temperature }}"
+
+  - if:
+      - condition: template
+        value_template: "{{ trigger.id == 'offline' }}"
+    then:
+      - action: logbook.log
+        data:
+          name: "{{ this.attributes.friendly_name }}"
+          entity_id: "{{ this.entity_id }}"
+          message: >-
+            {{ room }}: {{ reachable_sources | select('is_state', offline_options) | join(', ') }}
+            reported the room thermometer offline{{ ', temperature resent' if send }}
+
+  # Last: a notify service that is gone (renamed phone) stops the run, and
+  # continue_on_error cannot catch that.
+  - if:
+      - condition: template
+        value_template: "{{ to_switch | count > 0 and notify_on and notify_device != '' }}"
+    then:
+      - action: "notify.mobile_app_{{ device_attr(notify_device, 'name') | slugify }}"
+        data:
+          title: "{{ notify_title }}"
+          message: "{{ notify_message_internal if source == 'internal' else notify_message_external }}"
+  - if:
+      - condition: template
+        value_template: "{{ to_switch | count > 0 and notify_on }}"
+    then: !input notify_action
